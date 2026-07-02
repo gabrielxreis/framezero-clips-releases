@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Legenda OBS</title>
+<style>
+  /* Fundo transparente: no OBS, Browser Source ja entende como alpha. */
+  html,body{margin:0;padding:0;background:transparent;overflow:hidden;height:100%}
+  #legenda{
+    position:absolute;left:0;right:0;bottom:60px;
+    text-align:center;padding:0 8%;
+    font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+  }
+  .frase{
+    display:inline;
+    font-size:42px;font-weight:800;line-height:1.35;
+    color:#fff;
+    /* contorno preto pra ler sobre qualquer fundo */
+    text-shadow:
+      -2px -2px 0 #000, 2px -2px 0 #000,
+      -2px  2px 0 #000, 2px  2px 0 #000,
+       0    2px 0 #000, 0   -2px 0 #000,
+       2px  0   0 #000,-2px  0   0 #000,
+       0 0 14px rgba(0,0,0,.6);
+  }
+  /* palavra mais recente em amarelo, igual ao seu padrao de legenda */
+  .nova{color:#ffdc00}
+  #legenda.entra{animation:sobe .25s ease-out}
+  @keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+  <div id="legenda"></div>
+<script>
+const PORTA = 8765;
+const el = document.getElementById('legenda');
+// Quantas linhas recentes manter na tela
+const MAX_PALAVRAS = 14;
+let palavras = [];
+
+function render(){
+  el.classList.remove('entra'); void el.offsetWidth; el.classList.add('entra');
+  el.innerHTML = `<span class="frase">${palavras.map((p,i)=>
+    `<span class="${i>=palavras.length-3?'nova':''}">${escapar(p)}</span>`
+  ).join(' ')}</span>`;
+}
+
+function escapar(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+
+function add(texto){
+  const novas = texto.split(/\s+/).filter(Boolean);
+  palavras = palavras.concat(novas).slice(-MAX_PALAVRAS);
+  render();
+}
+
+let ws;
+function conectar(){
+  ws = new WebSocket(`ws://localhost:${PORTA}`);
+  ws.onmessage = (e)=>{
+    const d = JSON.parse(e.data);
+    if(d.tipo==='linha') add(d.texto);
+    else if(d.tipo==='status' && d.gravando===false){ palavras=[]; el.innerHTML=''; }
+  };
+  ws.onclose = ()=>setTimeout(conectar,2000);
+  ws.onerror = ()=>ws.close();
+}
+conectar();
+</script>
+</body>
+</html>

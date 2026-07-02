@@ -1,0 +1,6 @@
+Coloque aqui o arquivo real: BlackHole2ch.pkg
+
+Caminho esperado pelo instalador:
+plugins/blackhole/macos/BlackHole2ch.pkg
+
+Depois de subir esse arquivo no GitHub, o instalador baixa do nosso repositório e instala com senha de administrador.

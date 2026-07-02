@@ -1,0 +1,9 @@
+cd ~/Downloads/framezero-clips-releases_v1.1.8_v1.0.100_MAC_SINGLE_APPLICATION_SHORTCUT_SAFE_LOCKED
+
+git init
+git remote add origin https://github.com/gabrielxreis/framezero-clips-releases.git
+git branch -M main
+
+git add .
+git commit -m "Keep single Mac Applications shortcut v1.0.100"
+git push -u origin main --force

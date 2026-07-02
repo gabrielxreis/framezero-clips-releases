@@ -1,0 +1,8 @@
+OK INICIAR_INSTALADOR_WINDOWS.bat
+OK FrameZero_Installer_1.0_Windows.bat
+OK installers/FrameZero_Installer_1.0_Windows.bat
+OK FrameZero_Uninstaller_1.0_Windows.bat
+OK uninstallers/FrameZero_Uninstaller_1.0_Windows.bat
+OK windows/FrameZero_Clips_1.1.8_Windows.zip
+OK archive/FrameZero_Clips_1.1.8_Windows.zip
+Mac app policy: only /Applications/FrameZero Clips.app created; /Applications/FrameZero.app removed.

@@ -1,0 +1,14 @@
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$DIR" || exit 1
+chmod +x INICIAR_INSTALADOR_MAC.command installers/FrameZero_Installer_1.0_Mac.command 2>/dev/null || true
+xattr -dr com.apple.quarantine "$DIR" 2>/dev/null || true
+/usr/bin/osascript <<OSA >/dev/null 2>&1
+try
+  tell application "Terminal"
+    activate
+    do script "cd "$DIR" && bash ./INICIAR_INSTALADOR_MAC.command"
+  end tell
+end try
+OSA
+exit 0

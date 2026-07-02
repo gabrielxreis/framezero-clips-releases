@@ -1,0 +1,2 @@
+FrameZero Clips 1.1.8 - Instalador oficial Windows.
+Instala direto a versão atual, prepara dependências e cria o atalho do usuário.

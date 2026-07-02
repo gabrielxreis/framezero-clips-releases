@@ -1,0 +1,12 @@
+setuptools<82
+# FrameZero Clips Windows - usa faster-whisper.
+# mlx-whisper é exclusivo do Mac Apple Silicon e não deve entrar no Windows.
+faster-whisper>=1.0.3
+numpy>=1.24.0
+sounddevice>=0.4.6
+websockets>=12.0
+obsws-python>=1.7.0
+openai>=1.40.0
+requests>=2.31.0
+scipy>=1.13.0
+soundcard>=0.4.3

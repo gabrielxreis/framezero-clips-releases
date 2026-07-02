@@ -1,0 +1,78 @@
+{
+  "app": "FrameZero Clips",
+  "latest_version": "1.1.8",
+  "min_required_version": "1.1.8",
+  "release_name": "FrameZero Clips 1.1.8 - installer v1.0.99 Mac Applications shortcut safe fix",
+  "release_channel": "stable",
+  "force_update": false,
+  "message": "Mac: garante atalho FrameZero em /Applications sem alterar o fluxo principal; Windows v1.0.98 preservado.",
+  "windows_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/windows/FrameZero_Clips_1.1.8_Windows.zip",
+  "mac_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/mac/FrameZero_Clips_1.1.8_Mac.zip",
+  "online_installer_version": "1.0.99",
+  "online_installer_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/installers/FrameZero_Installer_1.0_Windows.bat",
+  "online_installer_mac_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/installers/FrameZero_Installer_1.0_Mac.command",
+  "uninstaller_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/uninstallers/FrameZero_Uninstaller_1.0_Windows.bat",
+  "uninstaller_mac_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/uninstallers/FrameZero_Uninstaller_1.0_Mac.command",
+  "nations_available": true,
+  "nations_version": "v55",
+  "nations_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/nations/windows/FrameZero_Nations_v55_Windows.zip",
+  "nations_mac_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/nations/mac/FrameZero_Nations_v55_Mac.zip",
+  "file_naming_rule": "software_version_platform_only",
+  "external_components": {
+    "windows": [
+      "Python/venv",
+      "FFmpeg",
+      "VB-CABLE",
+      "Aitum Vertical",
+      "Aitum Multistream",
+      "OBS Face Tracker"
+    ],
+    "mac": [
+      "Python/venv",
+      "FFmpeg",
+      "BlackHole 2ch obrigatório",
+      "Aitum Vertical",
+      "Aitum Multistream",
+      "OBS config/dock",
+      "OBS Face Tracker"
+    ],
+    "nations": [
+      "Piper voices gerenciadas pelo Core com fila/status/retry",
+      "ElevenLabs/local provider quando configurado"
+    ]
+  },
+  "installer_ui": {
+    "languages": [
+      "pt-BR",
+      "en-US"
+    ],
+    "branding": [
+      "@gabrielxreis_",
+      "@framezeroai"
+    ],
+    "return_to_menu_after_action": true,
+    "progress_bar": true,
+    "download_percent_speed": true,
+    "hide_technical_source": true
+  },
+  "installer_ui_version": "1.0.91",
+  "windows_installer_note": "Windows: bootstrap INICIAR_INSTALADOR_WINDOWS.bat limpa TEMP/cache e força baixar o instalador atualizado antes de abrir.",
+  "mac_installer_note": "Mac: garante app/atalho em /Applications após instalar, sem bloquear o Core se o atalho falhar.",
+  "installer_version": "1.0.99",
+  "notes": "Patch mínimo no Mac: cria/garante /Applications/FrameZero.app e /Applications/FrameZero Clips.app como fallback seguro.",
+  "version": "1.0.100",
+  "release_notes": "Mac: atalho em Aplicativos corrigido; Windows/Core/preflight preservados da v1.0.98.",
+  "mac_zip": "mac/FrameZero_Clips_1.1.8_Mac.zip",
+  "windows_zip": "windows/FrameZero_Clips_1.1.8_Windows.zip",
+  "version_label": "1.0.99",
+  "version_name": "v1.0.99 Mac Applications shortcut safe fix",
+  "required_update": true,
+  "clips_version": "1.1.8",
+  "build": "v1.0.71_CRITICAL_UPDATER_BLACKHOLE_FIX",
+  "latest_package_url": "https://github.com/gabrielxreis/framezero-clips-releases/archive/refs/heads/main.zip",
+  "mac_package": "mac/FrameZero_Clips_1.1.8_Mac.zip",
+  "windows_package": "windows/FrameZero_Clips_1.1.8_Windows.zip",
+  "windows_installer_ui_version": "1.0.91",
+  "mac_installer_ui_version": "1.0.71",
+  "name": "FrameZero Clips 1.1.8 - installer v1.0.99 Mac Applications shortcut safe fix"
+}
