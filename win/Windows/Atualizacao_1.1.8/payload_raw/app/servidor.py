@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.110 Editor Timeline.
+FrameZero Clips 1.1.8 - v1.0.111 Editor Timeline Safe.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -4843,12 +4843,11 @@ def fz110_margens_categoria(cat):
     return defaults.get(cat, (8, 10))
 
 def fz110_obs_recording_dirs():
+    # v1.0.111: usar somente a pasta configurada no OBS.
+    # Não varrer Movies/Desktop/Documents inteiro para não travar o Core.
     dirs = []
     try:
         home = Path.home()
-        dirs += [home / "Movies", home / "Videos", home / "Desktop", home / "Documents"]
-        if platform.system().lower().startswith("win"):
-            dirs += [home / "OneDrive" / "Videos", home / "Videos" / "OBS", home / "Documents" / "OBS"]
         obs_roots = []
         if platform.system().lower() == "darwin":
             obs_roots.append(home / "Library/Application Support/obs-studio/basic/profiles")
@@ -4856,36 +4855,48 @@ def fz110_obs_recording_dirs():
             appdata = os.environ.get("APPDATA")
             if appdata:
                 obs_roots.append(Path(appdata) / "obs-studio/basic/profiles")
+
         for root in obs_roots:
-            if root.exists():
-                for ini in root.glob("*/basic.ini"):
-                    try:
-                        text = ini.read_text(encoding="utf-8", errors="ignore")
-                        for m in re.finditer(r"(?im)^\s*(RecFilePath|FilePath)\s*=\s*(.+?)\s*$", text):
-                            dirs.append(Path(os.path.expanduser(m.group(2).strip().strip('"'))))
-                    except Exception:
-                        pass
-        for key in ["gravacao_original_path", "obs_recording_path", "recording_path", "pasta_gravacoes_obs"]:
+            if not root.exists():
+                continue
+            for ini in root.glob("*/basic.ini"):
+                try:
+                    text = ini.read_text(encoding="utf-8", errors="ignore")
+                    for m in re.finditer(r"(?im)^\\s*(RecFilePath|FilePath)\\s*=\\s*(.+?)\\s*$", text):
+                        raw = m.group(2).strip().strip('"')
+                        if not raw:
+                            continue
+                        raw = raw.replace("%USERPROFILE%", str(home))
+                        p = Path(os.path.expandvars(os.path.expanduser(raw)))
+                        dirs.append(p if p.suffix == "" else p.parent)
+                except Exception:
+                    pass
+
+        for key in ["pasta_gravacoes_obs", "obs_recording_path", "recording_path"]:
             try:
                 val = config_usuario.get(key) or CONFIG.get(key)
             except Exception:
                 val = None
             if val:
-                p = Path(os.path.expanduser(str(val).strip().strip('"')))
+                p = Path(os.path.expandvars(os.path.expanduser(str(val).strip().strip('"'))))
                 dirs.append(p if p.suffix == "" else p.parent)
     except Exception:
         pass
+
     seen, out = set(), []
     for d in dirs:
         try:
             d = Path(d).expanduser()
             if d.exists() and d.is_dir() and str(d) not in seen:
-                seen.add(str(d)); out.append(d)
+                seen.add(str(d))
+                out.append(d)
         except Exception:
             pass
     return out
 
 def fz110_detectar_gravacao_original():
+    # v1.0.111: detecção leve, no final da gravação.
+    # Busca apenas nos diretórios configurados pelo OBS e somente no nível da pasta.
     try:
         for key in ["gravacao_original_path", "obs_recording_file", "recording_file"]:
             val = config_usuario.get(key) if isinstance(config_usuario, dict) else None
@@ -4893,12 +4904,13 @@ def fz110_detectar_gravacao_original():
                 return str(Path(str(val)).expanduser())
     except Exception:
         pass
+
     exts = {".mp4", ".mov", ".mkv", ".m4v"}
     candidatos = []
     now = time.time()
     for d in fz110_obs_recording_dirs():
         try:
-            for p in d.glob("**/*"):
+            for p in Path(d).iterdir():
                 try:
                     if not p.is_file() or p.suffix.lower() not in exts:
                         continue
@@ -4908,7 +4920,7 @@ def fz110_detectar_gravacao_original():
                     st = p.stat()
                     if st.st_size < 5 * 1024 * 1024:
                         continue
-                    if now - st.st_mtime > 18 * 3600:
+                    if now - st.st_mtime > 8 * 3600:
                         continue
                     candidatos.append((st.st_mtime, st.st_size, p))
                 except Exception:
@@ -5007,6 +5019,8 @@ def fz110_export_editor_timeline(motivo="auto"):
     try:
         if not bool(config_usuario.get("editor_timeline_export_enabled", CONFIG.get("editor_timeline_export_enabled", True))):
             return None
+        if motivo in ("auto", "corte", "clip", "registrar_corte", "salvar_clipe"):
+            return None
         now = time.time()
         if motivo == "auto" and now - float(FZ110_EDITOR_EXPORT_LAST or 0) < 12:
             return None
@@ -5022,7 +5036,7 @@ def fz110_export_editor_timeline(motivo="auto"):
         fz110_write_edl(root / f"{stem}_FRAMEZERO_BEST_CUTS.edl", eventos_best or eventos_all, original, "FRAMEZERO_BEST_CUTS")
         fz110_write_fcpxml(root / f"{stem}_FRAMEZERO_TIMELINE.fcpxml", eventos_all, original, "FRAMEZERO_TIMELINE")
         fz110_write_fcpxml(root / f"{stem}_FRAMEZERO_BEST_CUTS.fcpxml", eventos_best or eventos_all, original, "FRAMEZERO_BEST_CUTS")
-        meta = {"version":"1.0.110","original_recording":original,"export_dir":str(root),"events":eventos_all,"best_events":eventos_best,"margins":{"louvor":[12,18],"pregacao":[8,10],"apelo":[15,20],"oracao":[12,15],"ministracao":[15,20]}}
+        meta = {"version":"1.0.111","original_recording":original,"export_dir":str(root),"events":eventos_all,"best_events":eventos_best,"margins":{"louvor":[12,18],"pregacao":[8,10],"apelo":[15,20],"oracao":[12,15],"ministracao":[15,20]}}
         (root / f"{stem}_FRAMEZERO_EDITOR_INFO.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
         FZ110_EDITOR_EXPORT_LAST = now
         print(f"[editor-timeline] exportado: {root}")
@@ -5035,6 +5049,59 @@ def fz110_export_editor_timeline(motivo="auto"):
         print(f"[editor-timeline] falhou: {e}")
         return None
 # ----------------------------- /v1.0.110 EDITOR TIMELINE -----------------------------
+
+
+# ----------------------------- v1.0.111 EDITOR TIMELINE SAFE -----------------------------
+FZ111_MONITOR_LAST_RECORDING = None
+FZ111_EXPORT_RUNNING = False
+
+def fz111_obs_recording_active():
+    try:
+        if obs_req is None:
+            return None
+        r = obs_req.get_record_status()
+        for attr in ("output_active", "outputActive", "recording", "is_recording", "isRecording"):
+            if hasattr(r, attr):
+                return bool(getattr(r, attr))
+        if isinstance(r, dict):
+            for key in ("outputActive", "output_active", "recording", "isRecording"):
+                if key in r:
+                    return bool(r.get(key))
+    except Exception:
+        return None
+    return None
+
+def fz111_export_editor_timeline_async(motivo="recording_stopped"):
+    global FZ111_EXPORT_RUNNING
+    if FZ111_EXPORT_RUNNING:
+        return
+    def _run():
+        global FZ111_EXPORT_RUNNING
+        try:
+            FZ111_EXPORT_RUNNING = True
+            print("[editor-timeline] gravação parou; aguardando OBS finalizar arquivo...")
+            time.sleep(float(config_usuario.get("editor_timeline_delay_after_stop", CONFIG.get("editor_timeline_delay_after_stop", 6))))
+            fz110_export_editor_timeline(motivo=motivo)
+        finally:
+            FZ111_EXPORT_RUNNING = False
+    threading.Thread(target=_run, daemon=True).start()
+
+def fz111_monitor_recording_stop():
+    global FZ111_MONITOR_LAST_RECORDING
+    while True:
+        try:
+            active = fz111_obs_recording_active()
+            if active is not None:
+                if FZ111_MONITOR_LAST_RECORDING is True and active is False:
+                    if bool(config_usuario.get("editor_timeline_export_on_record_stop", CONFIG.get("editor_timeline_export_on_record_stop", True))):
+                        fz111_export_editor_timeline_async("recording_stopped")
+                FZ111_MONITOR_LAST_RECORDING = bool(active)
+        except Exception as e:
+            print(f"[editor-timeline] monitor falhou: {e}")
+        time.sleep(3.0)
+# ----------------------------- /v1.0.111 EDITOR TIMELINE SAFE -----------------------------
+
+
 
 
 def registrar_corte(texto, score, titulo, razao, t, emocao="", funcao="", origem="local"):
@@ -5333,7 +5400,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.110 editor-timeline | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.111 editor-timeline-safe | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
@@ -7011,6 +7078,7 @@ async def main():
     else:
         print("[audio] fonte = plugin do OBS (aguardando conexao do plugin)")
     threading.Thread(target=worker_analise_cortes, daemon=True).start()
+    threading.Thread(target=fz111_monitor_recording_stop, daemon=True).start()
     threading.Thread(target=loop_transcricao, daemon=True).start()
 
     # servidor do painel + servidor do plugin de audio, juntos

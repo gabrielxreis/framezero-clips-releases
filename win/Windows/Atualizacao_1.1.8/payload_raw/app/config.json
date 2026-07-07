@@ -206,8 +206,8 @@
   "music_transcription_status_interval": 8,
   "music_show_instrumental_in_transcription": true,
   "music_show_singing_status_when_asr_invalid": true,
-  "installer_version": "1.0.110",
-  "online_installer_version": "1.0.110",
+  "installer_version": "1.0.111",
+  "online_installer_version": "1.0.111",
   "worship_cooldown_seg": 55,
   "worship_scoring_version": "1.0.109",
   "music_score_emotional": true,
@@ -257,5 +257,10 @@
     "ministracao": "Orange",
     "frase_forte": "Green",
     "avisos": "Gray"
-  }
+  },
+  "editor_timeline_enabled": true,
+  "editor_timeline_export_on_record_stop": true,
+  "editor_timeline_export_during_recording": false,
+  "editor_timeline_detect_original_from_obs_only": true,
+  "editor_timeline_delay_after_stop": 6
 }

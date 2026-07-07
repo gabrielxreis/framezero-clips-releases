@@ -1,0 +1,8 @@
+FrameZero Clips v1.0.111 — Editor Timeline Safe FIXED
+
+Correção da v1.0.110:
+- Exportação EDL/FCPXML não roda durante culto/transcrição/corte.
+- Exportação automática só roda quando o OBS parar a gravação geral.
+- Detecção da gravação original usa somente a pasta configurada no OBS.
+- Sem varredura recursiva pesada em Movies/Desktop/Documents/Downloads.
+- Exportação roda em thread separada depois que a gravação para.
