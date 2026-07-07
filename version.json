@@ -4,7 +4,7 @@
   "min_required_version": "1.1.8",
   "release_name": "FrameZero Clips 1.1.8 - v1.0.103 Worship Intelligence",
   "release_channel": "stable",
-  "force_update": false,
+  "force_update": true,
   "message": "Windows: cortes padrão 35s a 90s, Culto Inteligente, louvor automático, pregação traduzida EN/PT-BR e reparo automático de dependências Python. Mac preservado.",
   "windows_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/windows/FrameZero_Clips_1.1.8_Windows.zip",
   "mac_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/mac/FrameZero_Clips_1.1.8_Mac.zip",
@@ -17,64 +17,24 @@
   "nations_version": "v55",
   "nations_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/nations/windows/FrameZero_Nations_v55_Windows.zip",
   "nations_mac_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/nations/mac/FrameZero_Nations_v55_Mac.zip",
-  "file_naming_rule": "software_version_platform_only",
-  "external_components": {
-    "windows": [
-      "Python/venv",
-      "FFmpeg",
-      "VB-CABLE",
-      "Aitum Vertical",
-      "Aitum Multistream",
-      "OBS Face Tracker"
-    ],
-    "mac": [
-      "Python/venv",
-      "FFmpeg",
-      "BlackHole 2ch obrigatório",
-      "Aitum Vertical",
-      "Aitum Multistream",
-      "OBS config/dock",
-      "OBS Face Tracker"
-    ],
-    "nations": [
-      "Piper voices gerenciadas pelo Core com fila/status/retry",
-      "ElevenLabs/local provider quando configurado"
-    ]
-  },
-  "installer_ui": {
-    "languages": [
-      "pt-BR",
-      "en-US"
-    ],
-    "branding": [
-      "@gabrielxreis_",
-      "@framezeroai"
-    ],
-    "return_to_menu_after_action": true,
-    "progress_bar": true,
-    "download_percent_speed": true,
-    "hide_technical_source": true
-  },
-  "installer_ui_version": "1.0.102",
-  "windows_installer_note": "Windows: bootstrap INICIAR_INSTALADOR_WINDOWS.bat limpa TEMP/cache e força baixar o instalador atualizado antes de abrir.",
-  "mac_installer_note": "Mac: BlackHole instalado via Homebrew não bloqueia mais a instalação quando o CoreAudio ainda não atualizou.",
-  "installer_version": "1.0.102",
-  "notes": "Patch mínimo no preflight Windows: detectar plugins Aitum já instalados antes de baixar/reinstalar.",
-  "version": "1.0.102",
-  "release_notes": "Mixed Worship Mode: modos mixed/sermon/podcast/worship, classificador leve de áudio, corte por clímax musical quando Whisper não gera texto válido, sem fallback VPS e sem alterar instalador congelado.",
+  "installer_ui_version": "1.0.103",
+  "installer_version": "1.0.103",
+  "notes": "v1.0.103 Worship Intelligence: Culto Inteligente, cortes 35s a 90s, louvor automático, contexto bilíngue EN/PT-BR e dependências Windows reparadas automaticamente.",
+  "version": "1.0.103",
+  "release_notes": "Worship Intelligence: modos mixed/sermon/bilingual_sermon/podcast/worship, duração 35s a 90s, louvor automático, pregação traduzida EN/PT-BR e fallback seguro sem quebrar máquinas fracas.",
   "mac_zip": "mac/FrameZero_Clips_1.1.8_Mac.zip",
   "windows_zip": "windows/FrameZero_Clips_1.1.8_Windows.zip",
-  "version_label": "1.0.102",
-  "version_name": "v1.0.98 Windows Aitum plugin detection safe base",
+  "version_label": "1.0.103",
+  "version_name": "v1.0.103 Worship Intelligence",
   "required_update": true,
   "clips_version": "1.1.8",
-  "build": "v1.0.71_CRITICAL_UPDATER_BLACKHOLE_FIX",
+  "build": "v1.0.103_WORSHIP_INTELLIGENCE",
   "latest_package_url": "https://github.com/gabrielxreis/framezero-clips-releases/archive/refs/heads/main.zip",
   "mac_package": "mac/FrameZero_Clips_1.1.8_Mac.zip",
   "windows_package": "windows/FrameZero_Clips_1.1.8_Windows.zip",
-  "windows_installer_ui_version": "1.0.91",
+  "windows_installer_ui_version": "1.0.103",
   "mac_installer_ui_version": "1.0.71",
-  "name": "FrameZero Clips 1.1.8 - v1.0.102 Mixed Worship Mode",
+  "name": "FrameZero Clips 1.1.8 - v1.0.103 Worship Intelligence",
   "package_version": "1.0.103",
   "windows_version": "1.0.103",
   "mac_version": "1.0.102"
