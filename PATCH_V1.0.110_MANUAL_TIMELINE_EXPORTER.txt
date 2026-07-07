@@ -1,0 +1,1 @@
+v1.0.110 Manual Timeline Exporter: adiciona exportador pós-evento EDL/FCPXML, sem alterar Core ao vivo.
