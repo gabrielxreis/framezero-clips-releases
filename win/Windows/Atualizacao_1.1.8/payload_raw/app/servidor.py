@@ -5073,7 +5073,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.109 singing-aware-worship | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.111 performance-lite | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
@@ -6773,3 +6773,8 @@ if __name__ == "__main__":
     else:
         try: asyncio.run(main())
         except KeyboardInterrupt: print("\n[fim]")
+
+
+# FRAMEZERO_V111_PERFORMANCE_LITE_PATCH = True
+FRAMEZERO_DISABLE_EDL_FCPXML = True
+FRAMEZERO_PERFORMANCE_LITE = True

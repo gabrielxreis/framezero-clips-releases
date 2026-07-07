@@ -1,0 +1,5 @@
+v1.0.111 Performance Lite
+- remove EDL/FCPXML/exportador manual
+- desativa flags de timeline
+- aplica flags de performance/fila/backoff no config
+- mantém Core baseado na v1.0.109 estável
