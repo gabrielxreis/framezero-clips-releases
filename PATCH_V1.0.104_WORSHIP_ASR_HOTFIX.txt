@@ -1,0 +1,25 @@
+FrameZero Clips v1.0.104 — Worship ASR Hotfix
+
+Objetivo:
+- Corrigir loop onde speech_with_music ficava aguardando para sempre quando o Whisper retornava texto inválido.
+
+Mudanças:
+- Acumula contexto musical/fala com música por pelo menos 35s.
+- Após 2 falhas de ASR em speech_with_music/louvor, força candidato por áudio.
+- Não cria SRT falso quando não houver transcrição confiável.
+- Mantém VPS desativada.
+- Mantém corte final 35s a 90s.
+- Melhora logs para diferenciar janela interna de 15s do corte final.
+
+Arquivos alterados:
+- latest/version.json
+- version.json
+- windows/FrameZero_Clips_1.1.8_Windows.zip
+- win/Windows/Atualizacao_1.1.8/payload_raw/app/config.json
+- win/Windows/Atualizacao_1.1.8/payload_raw/app/servidor.py
+- PATCH_V1.0.104_WORSHIP_ASR_HOTFIX.txt
+
+Arquivos congelados preservados:
+- instaladores principais
+- uninstallers
+- pacote Mac

@@ -1061,35 +1061,83 @@ def audio_features_misto(audio, sr=16000):
 
 
 ultimo_corte_musical_audio = 0.0
+music_audio_segment_start = None
+music_audio_segment_seconds = 0.0
+music_audio_invalidos = 0
 
 def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio"):
     """Gera candidato de corte para louvor/ministração mesmo quando o Whisper não devolve texto.
+    Hotfix v1.0.104: não deixa speech_with_music preso aguardando ASR para sempre.
     Não cria SRT falso. Só usa o áudio para clipar momento musical/emocional.
     """
-    global ultimo_corte_musical_audio
+    global ultimo_corte_musical_audio, music_audio_segment_start, music_audio_segment_seconds, music_audio_invalidos
     modo = clip_mode_atual()
     if modo not in ("mixed", "worship"):
         return False
-    now_t = float(t0 or 0) + float(bloco_segundos or 0)
-    cooldown = max(35, int(config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60))))
-    if now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
+
+    bloco = max(1.0, float(bloco_segundos or 0))
+    now_t = float(t0 or 0) + bloco
+    kind = str(feats.get("kind", "unknown"))
+
+    if kind not in ("music", "speech_with_music"):
+        music_audio_segment_start = None
+        music_audio_segment_seconds = 0.0
+        music_audio_invalidos = 0
         return False
+
+    if music_audio_segment_start is None:
+        music_audio_segment_start = max(0.0, now_t - bloco)
+        music_audio_segment_seconds = 0.0
+        music_audio_invalidos = 0
+
+    music_audio_segment_seconds += bloco
+    if any(x in str(motivo).lower() for x in ("whisper", "asr", "invalido", "falhou")):
+        music_audio_invalidos += 1
+
+    dur_min = float(config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 35)))
+    dur_min = max(25.0, min(45.0, dur_min))
+    force_after = int(config_usuario.get("music_asr_force_after_invalid", CONFIG.get("music_asr_force_after_invalid", 2)))
+    forced = music_audio_invalidos >= max(1, force_after) and music_audio_segment_seconds >= dur_min
+
+    if music_audio_segment_seconds < dur_min:
+        print(f"[music] acumulando contexto: tipo={kind} dur={music_audio_segment_seconds:.0f}/{dur_min:.0f}s invalidos={music_audio_invalidos}")
+        return False
+
+    cooldown_padrao = max(35, int(config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60))))
+    cooldown = 35 if forced else cooldown_padrao
+    if now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
+        print(f"[music] contexto bom, mas em cooldown: restante={int(cooldown - (now_t - float(ultimo_corte_musical_audio or 0)))}s")
+        return False
+
     score = int(feats.get("music_score", feats.get("energy_score", 0)) or 0)
-    # Mais conservador para não cortar qualquer música baixa de fundo.
     limiar = 72 if modo == "mixed" else 62
-    if feats.get("kind") == "speech_with_music":
+    if kind == "speech_with_music":
         score = max(score, int((feats.get("music_score",0)*0.55) + (feats.get("speech_score",0)*0.45)))
         limiar = 78
+
+    if forced:
+        limiar = 62 if kind == "speech_with_music" else min(limiar, 68)
+        score = max(score, limiar + 8)
+
     if score < limiar:
+        print(f"[music] aguardando momento mais forte: score={score} limiar={limiar} tipo={kind} dur={music_audio_segment_seconds:.0f}s")
         return False
+
     titulo = "Momento de louvor" if modo == "worship" else "Momento forte do culto"
+    if forced and kind == "speech_with_music":
+        titulo = "Fala com música no culto" if modo == "mixed" else "Louvor com voz detectada"
     if feats.get("dynamic",0) > 0.85:
         titulo = "Clímax de adoração" if modo == "worship" else "Virada emocional do culto"
-    texto = "Trecho musical detectado automaticamente pelo áudio. Sem legenda forçada para evitar SRT errado."
-    razao = f"{motivo}: energia={feats.get('energy_score',0)} musica={feats.get('music_score',0)} dinamica={round(float(feats.get('dynamic',0)),2)}"
+
+    texto = "Trecho detectado pelo áudio em modo louvor/fala com música. Sem legenda forçada para evitar SRT errado."
+    razao = f"{motivo}: energia={feats.get('energy_score',0)} musica={feats.get('music_score',0)} fala={feats.get('speech_score',0)} dinamica={round(float(feats.get('dynamic',0)),2)} invalidos={music_audio_invalidos} forced={forced}"
     registrar_corte(texto, min(100, max(score, limiar)), titulo, razao, now_t, emocao="adoração", funcao="clímax musical", origem="mixed-worship-audio")
     ultimo_corte_musical_audio = now_t
-    print(f"[music] corte candidato por áudio: score={score} tipo={feats.get('kind')} t={fmt(now_t)}")
+    print(f"[music] corte candidato por áudio: score={score} tipo={kind} dur={music_audio_segment_seconds:.0f}s forced={forced} t={fmt(now_t)}")
+
+    music_audio_segment_start = None
+    music_audio_segment_seconds = 0.0
+    music_audio_invalidos = 0
     return True
 
 
@@ -4691,8 +4739,8 @@ def loop_transcricao():
         print(f"[turbo] OpenAI Realtime ativo: chunks de {bloco_segundos_atual:.1f}s delay={config_usuario.get('openai_realtime_delay','high')}")
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
-        print(f"[padrao] Corte Seguro local: blocos de {bloco_segundos_atual:.1f}s")
-    print(f"[modo] {clip_mode_atual()} | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+        print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
+    print(f"[modo] {clip_mode_atual()} | v1.0.104 hotfix | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
