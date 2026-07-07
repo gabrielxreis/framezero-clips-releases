@@ -1067,7 +1067,7 @@ music_audio_invalidos = 0
 
 def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio"):
     """Gera candidato de corte para louvor/ministração mesmo quando o Whisper não devolve texto.
-    Hotfix v1.0.104: não deixa speech_with_music preso aguardando ASR para sempre.
+    Hotfix v1.0.105: força candidato de áudio quando o ASR trava em speech_with_music.
     Não cria SRT falso. Só usa o áudio para clipar momento musical/emocional.
     """
     global ultimo_corte_musical_audio, music_audio_segment_start, music_audio_segment_seconds, music_audio_invalidos
@@ -1097,15 +1097,20 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
     dur_min = float(config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 35)))
     dur_min = max(25.0, min(45.0, dur_min))
     force_after = int(config_usuario.get("music_asr_force_after_invalid", CONFIG.get("music_asr_force_after_invalid", 2)))
-    forced = music_audio_invalidos >= max(1, force_after) and music_audio_segment_seconds >= dur_min
+    force_after = max(1, force_after)
+    # v1.0.105: se o ASR falhar 2x em fala com música, não espera indefinidamente.
+    # Dispara candidato por áudio a partir de 30s e o normalizador expande o clipe final para 35-90s.
+    force_min = min(dur_min, float(config_usuario.get("music_force_min_seconds", CONFIG.get("music_force_min_seconds", 30))))
+    force_min = max(20.0, min(35.0, force_min))
+    forced = music_audio_invalidos >= force_after and music_audio_segment_seconds >= force_min
 
-    if music_audio_segment_seconds < dur_min:
-        print(f"[music] acumulando contexto: tipo={kind} dur={music_audio_segment_seconds:.0f}/{dur_min:.0f}s invalidos={music_audio_invalidos}")
+    if music_audio_segment_seconds < dur_min and not forced:
+        print(f"[music] acumulando contexto: tipo={kind} dur={music_audio_segment_seconds:.0f}/{dur_min:.0f}s invalidos={music_audio_invalidos} force_min={force_min:.0f}s")
         return False
 
     cooldown_padrao = max(35, int(config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60))))
-    cooldown = 35 if forced else cooldown_padrao
-    if now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
+    cooldown = 0 if forced else cooldown_padrao
+    if cooldown > 0 and ultimo_corte_musical_audio and now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
         print(f"[music] contexto bom, mas em cooldown: restante={int(cooldown - (now_t - float(ultimo_corte_musical_audio or 0)))}s")
         return False
 
@@ -1117,7 +1122,8 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
 
     if forced:
         limiar = 62 if kind == "speech_with_music" else min(limiar, 68)
-        score = max(score, limiar + 8)
+        score = 100
+        print(f"[music] FORCE AUDIO: ASR invalido={music_audio_invalidos} tipo={kind} dur={music_audio_segment_seconds:.0f}s -> gerando candidato sem SRT falso")
 
     if score < limiar:
         print(f"[music] aguardando momento mais forte: score={score} limiar={limiar} tipo={kind} dur={music_audio_segment_seconds:.0f}s")

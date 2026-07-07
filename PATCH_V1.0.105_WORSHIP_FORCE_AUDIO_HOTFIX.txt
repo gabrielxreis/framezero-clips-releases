@@ -1,0 +1,19 @@
+FrameZero Clips v1.0.105 — Worship Force Audio Hotfix
+
+Correção do cenário onde speech_with_music acumulava contexto, mas não disparava corte.
+
+Mudanças:
+- Depois de 2 falhas de ASR em fala com música, força candidato por áudio a partir de 30s.
+- O clipe final continua normalizado para 35s a 90s.
+- Não gera SRT falso quando a transcrição é inválida.
+- Remove cooldown no primeiro candidato forçado para não bloquear o disparo inicial.
+- Log novo: [music] FORCE AUDIO ...
+- Mantém VPS desativada.
+- Mantém modo mixed / louvor auto / bilíngue auto.
+
+Arquivos alterados:
+- latest/version.json
+- version.json
+- win/Windows/Atualizacao_1.1.8/payload_raw/app/config.json
+- win/Windows/Atualizacao_1.1.8/payload_raw/app/servidor.py
+- windows/FrameZero_Clips_1.1.8_Windows.zip
