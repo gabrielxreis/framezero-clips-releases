@@ -1,0 +1,10 @@
+FrameZero Clips v1.0.108 — Fix v1.0.107 Syntax
+
+Correção urgente:
+- Corrige erro de sintaxe criado na v1.0.107:
+  EMOCOES_LOCAL = [EMOCOES_LOCAL = [
+- Mantém os recursos da v1.0.107:
+  score emocional de louvor, possível nome da música, cooldown e bloqueio de vídeo externo.
+- Atualiza manifest para 1.0.108.
+- Não instala dependências novas.
+- Mantém VPS desativada.

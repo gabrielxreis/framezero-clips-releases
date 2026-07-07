@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.107 Worship Scoring & Song Naming.
+FrameZero Clips 1.1.8 - v1.0.108 Worship Scoring & Song Naming.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -1367,7 +1367,7 @@ def score_heuristico_musica(texto):
     score, razoes, emocao, funcao = fz107_score_emocional_louvor(original, {})
     return score, razoes, emocao, funcao
 
-EMOCOES_LOCAL = [EMOCOES_LOCAL = [
+EMOCOES_LOCAL = [
     ("quebrantamento", ["choro","dor","perdao","arrependimento","quebrantado","quebrantamento"]),
     ("fé", ["fe","creia","impossivel","milagre","promessa","vitoria"]),
     ("esperança", ["esperanca","recomeco","amanha","novo","restaurar","levanta"]),
@@ -4932,7 +4932,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.107 worship-scoring | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.108 worship-scoring-fix | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
