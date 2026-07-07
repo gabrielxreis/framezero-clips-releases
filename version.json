@@ -77,5 +77,6 @@
   "name": "FrameZero Clips 1.1.8 - v1.0.109 Singing-Aware Worship",
   "package_version": "1.0.109",
   "windows_version": "1.0.109",
-  "mac_version": "1.0.109"
+  "mac_version": "1.0.109",
+  "manifest_cache_bust": "1783405664"
 }
