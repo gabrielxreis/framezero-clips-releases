@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.103 Worship Intelligence + Culto Inteligente.
+FrameZero Clips 1.1.8 - v1.0.107 Worship Scoring & Song Naming.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -903,6 +903,176 @@ FRASES_MUSICA_IMPACTO = {
     "aleluia": 18, "glória": 18, "gloria": 18, "hosana": 20,
 }
 
+
+# ----------------------------- v1.0.107 WORSHIP SCORING & SONG NAMING -----------------------------
+FZ107_VIDEO_EXTERNO_PATTERNS = [
+    r"\b(cleanmymac|macbook|aplicativo|aplicativos|instalador|instaladores|ferramentas gratuitamente|7 dias|cupom|link na bio|se inscreva|curte e compartilha)\b",
+    r"\b(tutorial|review|unboxing|produto|an[uú]ncio|propaganda|patrocinado|sponsor|compre agora|arrasta pra cima)\b",
+    r"\b(iphone|ipad|notebook|windows|download|atualizar todos os aplicativos|lixo do sistema)\b",
+]
+
+FZ107_FRASES_LOUVOR_CORACAO = {
+    "sem ti nao somos nada": 34,
+    "sem ti não somos nada": 34,
+    "nao vou mais te deixar": 32,
+    "não vou mais te deixar": 32,
+    "meu prazer e te louvar": 30,
+    "meu prazer é te louvar": 30,
+    "lugar seguro": 24,
+    "tudo deixarei": 26,
+    "te amar": 18,
+    "tua mao me sustentou": 26,
+    "tua mão me sustentou": 26,
+    "presenca de jeova": 28,
+    "presença de jeová": 28,
+    "espirito santo": 26,
+    "espírito santo": 26,
+    "eu me rendo": 30,
+    "me entrego": 28,
+    "tu es tudo": 26,
+    "tu és tudo": 26,
+    "santo santo": 30,
+    "digno": 20,
+    "aleluia": 16,
+}
+
+FZ107_PALAVRAS_ADORACAO_PROFUNDA = {
+    "jesus","deus","senhor","espirito","espírito","santo","presenca","presença",
+    "adorar","adoracao","adoração","louvar","louvor","rendo","entrego","quebranta",
+    "cura","milagre","promessa","graca","graça","amor","alma","coracao","coração",
+    "fiel","digno","gloria","glória","aleluia","jeova","jeová","salvador"
+}
+
+FZ107_STOP_TITLE = {
+    "eu","tu","voce","você","ele","ela","nos","nós","meu","minha","teu","tua",
+    "que","pra","para","com","sem","por","de","da","do","em","no","na","um","uma",
+    "e","o","a","os","as","mais","muito","muita","agora","assim","isso"
+}
+
+def fz107_parece_video_externo(texto):
+    normal = _norm(texto or "")
+    if not normal:
+        return False
+    return any(re.search(p, normal, re.I) for p in FZ107_VIDEO_EXTERNO_PATTERNS)
+
+def fz107_conf_texto_louvor(texto):
+    normal = _norm(texto or "")
+    palavras = [p.strip(".,!?;:()[]{}\"'") for p in normal.split() if p.strip()]
+    if not palavras:
+        return 0
+    score = 0
+    for frase, peso in FZ107_FRASES_LOUVOR_CORACAO.items():
+        if _norm(frase) in normal:
+            score += peso
+    ad = sum(1 for p in palavras if p in FZ107_PALAVRAS_ADORACAO_PROFUNDA)
+    score += min(35, ad * 5)
+    repeticao = len(palavras) - len(set(palavras))
+    if repeticao >= 2:
+        score += min(18, repeticao * 3)
+    if 5 <= len(palavras) <= 32:
+        score += 10
+    if len(palavras) > 55:
+        score -= 10
+    if fz107_parece_video_externo(texto):
+        score -= 80
+    return max(0, min(100, score))
+
+def fz107_nome_musica_por_letra(texto):
+    original = re.sub(r"\s+", " ", (texto or "")).strip()
+    normal = _norm(original)
+    if not normal or fz107_parece_video_externo(original):
+        return "", 0
+    melhores = []
+    for frase, peso in FZ107_FRASES_LOUVOR_CORACAO.items():
+        nf = _norm(frase)
+        if nf in normal:
+            melhores.append((peso, frase))
+    if melhores:
+        melhores.sort(reverse=True)
+        nome = melhores[0][1]
+        nome = nome[:1].upper() + nome[1:]
+        return nome, min(95, 62 + melhores[0][0])
+    partes = re.split(r"(?<=[.!?…])\s+|,|\n", original)
+    candidatas = []
+    for parte in partes:
+        p = re.sub(r"\s+", " ", parte).strip(" -–—:;,.!?")
+        np = _norm(p)
+        palavras = [x for x in np.split() if x not in FZ107_STOP_TITLE]
+        if 3 <= len(palavras) <= 9 and fz107_conf_texto_louvor(p) >= 28:
+            freq = normal.count(np)
+            candidatas.append((freq, fz107_conf_texto_louvor(p), p))
+    if candidatas:
+        candidatas.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        nome = candidatas[0][2]
+        nome = " ".join(w[:1].upper() + w[1:] for w in nome.split())
+        return nome[:52], min(88, 50 + candidatas[0][1] + candidatas[0][0] * 6)
+    palavras = original.split()
+    if 4 <= len(palavras) <= 12 and fz107_conf_texto_louvor(original) >= 35:
+        nome = " ".join(w[:1].upper() + w[1:] for w in original.strip(".,!?").split())
+        return nome[:52], 70
+    return "", 0
+
+def fz107_titulo_louvor(texto, fallback="Momento de louvor"):
+    nome, conf = fz107_nome_musica_por_letra(texto)
+    if nome and conf >= 78:
+        return f"Louvor - {nome}"
+    if nome and conf >= 60:
+        return f"Louvor - Possível {nome}"
+    return fallback
+
+def fz107_score_emocional_louvor(texto, feats=None):
+    feats = feats or {}
+    normal = _norm(texto or "")
+    palavras = [p for p in normal.split() if p]
+    if not palavras:
+        return 0, ["sem letra confiável"], "adoração", "louvor"
+    if fz107_parece_video_externo(texto):
+        return 0, ["vídeo externo/propaganda bloqueado"], "neutro", "ignorado"
+    score = 28
+    razoes = ["louvor detectado"]
+    conf_letra = fz107_conf_texto_louvor(texto)
+    score += min(36, int(conf_letra * 0.45))
+    if conf_letra >= 55:
+        razoes.append("letra forte")
+    elif conf_letra >= 30:
+        razoes.append("letra de adoração")
+    for frase, peso in FZ107_FRASES_LOUVOR_CORACAO.items():
+        if _norm(frase) in normal:
+            score += min(18, int(peso * 0.35))
+            razoes.append("frase sensível")
+            break
+    repeticao = len(palavras) - len(set(palavras))
+    if repeticao >= 2:
+        score += min(16, repeticao * 3)
+        razoes.append("repetição congregacional")
+    rms = float((feats or {}).get("rms", 0.0) or 0.0)
+    energy = int((feats or {}).get("energy_score", 0) or 0)
+    dynamic = float((feats or {}).get("dynamic", 0.0) or 0.0)
+    if rms < 0.09 and conf_letra >= 45:
+        score += 12
+        razoes.append("parte íntima com letra clara")
+    elif energy >= 82 and conf_letra >= 35:
+        score += 10
+        razoes.append("energia + letra")
+    elif energy >= 82 and conf_letra < 20:
+        score -= 12
+        razoes.append("energia alta sem letra clara")
+    if dynamic >= 0.75:
+        score += 8
+        razoes.append("crescimento emocional")
+    if len(palavras) <= 4:
+        score -= 10
+    if len(palavras) > 70 and repeticao < 3:
+        score -= 8
+    emocao = "adoração"
+    if re.search(r"\b(rendo|entrego|quebranta|sem ti|alma|coracao|coração|choro|cura)\b", normal):
+        emocao = "quebrantamento"
+    elif re.search(r"\b(aleluia|gloria|glória|celebr|vitoria|vitória|prazer e te louvar|prazer é te louvar)\b", normal):
+        emocao = "celebração"
+    funcao = "refrão/congregação" if repeticao >= 2 else "momento sensível de louvor"
+    return max(0, min(96, int(score))), list(dict.fromkeys(razoes))[:5], emocao, funcao
+# ----------------------------- /v1.0.107 WORSHIP SCORING & SONG NAMING -----------------------------
+
 PALAVRAS_PREGA_FALA = {
     "biblia", "bíblia", "versiculo", "versículo", "capitulo", "capítulo",
     "texto", "pregacao", "pregação", "mensagem", "ensino", "historia", "história",
@@ -1150,8 +1320,8 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
         print(f"[music] acumulando contexto: tipo={kind} dur={music_audio_segment_seconds:.0f}/{dur_min:.0f}s invalidos={music_audio_invalidos} force_min={force_min:.0f}s")
         return False
 
-    cooldown_padrao = max(35, int(config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60))))
-    cooldown = 0 if forced else cooldown_padrao
+    cooldown_padrao = max(45, int(config_usuario.get("worship_cooldown_seg", config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60)))))
+    cooldown = 20 if forced else cooldown_padrao
     if cooldown > 0 and ultimo_corte_musical_audio and now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
         print(f"[music] contexto bom, mas em cooldown: restante={int(cooldown - (now_t - float(ultimo_corte_musical_audio or 0)))}s")
         return False
@@ -1164,18 +1334,18 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
 
     if forced:
         limiar = 62 if kind == "speech_with_music" else min(limiar, 68)
-        score = 100
-        print(f"[music] FORCE AUDIO: ASR invalido={music_audio_invalidos} tipo={kind} dur={music_audio_segment_seconds:.0f}s -> gerando candidato sem SRT falso")
+        score = max(limiar, min(86, int((feats.get("music_score",0)*0.45) + (feats.get("speech_score",0)*0.25) + (feats.get("energy_score",0)*0.20) + 12)))
+        print(f"[music] FORCE AUDIO v1.0.107: ASR invalido={music_audio_invalidos} tipo={kind} dur={music_audio_segment_seconds:.0f}s score={score} -> candidato sem SRT falso")
 
     if score < limiar:
         print(f"[music] aguardando momento mais forte: score={score} limiar={limiar} tipo={kind} dur={music_audio_segment_seconds:.0f}s")
         return False
 
-    titulo = "Momento de louvor" if modo == "worship" else "Momento forte do culto"
+    titulo = "Louvor - Momento de adoração" if modo == "worship" else "Culto - Momento com música"
     if forced and kind == "speech_with_music":
-        titulo = "Fala com música no culto" if modo == "mixed" else "Louvor com voz detectada"
+        titulo = "Louvor - Voz com música" if modo == "worship" else "Culto - Fala com música"
     if feats.get("dynamic",0) > 0.85:
-        titulo = "Clímax de adoração" if modo == "worship" else "Virada emocional do culto"
+        titulo = "Louvor - Clímax de adoração" if modo == "worship" else "Culto - Virada emocional"
 
     texto = "Trecho detectado pelo áudio em modo louvor/fala com música. Sem legenda forçada para evitar SRT errado."
     razao = f"{motivo}: energia={feats.get('energy_score',0)} musica={feats.get('music_score',0)} fala={feats.get('speech_score',0)} dinamica={round(float(feats.get('dynamic',0)),2)} invalidos={music_audio_invalidos} forced={forced}"
@@ -1190,46 +1360,14 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
 
 
 def score_heuristico_musica(texto):
-    """Pontuação para louvor/música. Prioriza refrão, ponte, clímax e partes bonitas."""
+    # v1.0.107: pontuação emocional de louvor.
     original = texto.strip()
-    normal = _norm(original)
-    palavras = [p.strip(".,!?;:()[]{}\"'") for p in normal.split()]
-    palavras = [p for p in palavras if p]
-    if len(palavras) < 3:
-        return 0, [], "", ""
-    score = 18
-    razoes = ["música/louvor"]
-    for frase, peso in FRASES_MUSICA_IMPACTO.items():
-        if _norm(frase) in normal:
-            score += peso
-            razoes.append("frase cantável")
-    n_music = 0
-    for termo in PALAVRAS_MUSICA_LOUVOR:
-        if _norm(termo) in normal:
-            n_music += 1
-    if n_music:
-        score += min(n_music * 9, 36)
-        razoes.append("vocabulário de louvor")
-    repeticao = len(palavras) - len(set(palavras))
-    if repeticao >= 2:
-        score += min(repeticao * 8, 32)
-        razoes.append("refrão/repetição")
-    if 5 <= len(palavras) <= 24:
-        score += 12
-    if "!" in original:
-        score += 8
-    if re.search(r"\b(santo|digno|aleluia|gloria|glória|hosana|jesus|deus|senhor)\b", normal):
-        score += 12
-        razoes.append("clímax espiritual")
-    emocao = "adoração"
-    if re.search(r"\b(choro|quebrantado|alma|coracao|coração|amor)\b", normal):
-        emocao = "quebrantamento"
-    elif re.search(r"\b(aleluia|gloria|glória|hosana|celebrar|alegria)\b", normal):
-        emocao = "celebração"
-    funcao = "refrão" if repeticao >= 2 else "clímax musical"
-    return min(score, 100), razoes[:4], emocao, funcao
+    if fz107_parece_video_externo(original):
+        return 0, ["vídeo externo/propaganda bloqueado"], "neutro", "ignorado"
+    score, razoes, emocao, funcao = fz107_score_emocional_louvor(original, {})
+    return score, razoes, emocao, funcao
 
-EMOCOES_LOCAL = [
+EMOCOES_LOCAL = [EMOCOES_LOCAL = [
     ("quebrantamento", ["choro","dor","perdao","arrependimento","quebrantado","quebrantamento"]),
     ("fé", ["fe","creia","impossivel","milagre","promessa","vitoria"]),
     ("esperança", ["esperanca","recomeco","amanha","novo","restaurar","levanta"]),
@@ -4676,7 +4814,13 @@ def processar_analise_cortes(bloco_txt, t_ref, t_fim, linhas_ref=None):
             for c in candidatos_locais[:max_itens]:
                 if int(c.get("score", 0)) < limite:
                     continue
-                registrar_corte(c["trecho"], int(c["score"]), c["titulo"], c["razao"], c["tempo"],
+                titulo_c = c["titulo"]
+                try:
+                    if tipo_conteudo_por_modo(c.get("trecho", "")) == "musica":
+                        titulo_c = fz107_titulo_louvor(c.get("trecho", ""), fallback=titulo_c)
+                except Exception:
+                    pass
+                registrar_corte(c["trecho"], int(c["score"]), titulo_c, c["razao"], c["tempo"],
                                 emocao=c.get("emocao", ""), funcao=c.get("funcao", ""), origem=origem)
                 disparou_local = True
                 if modo_corte == "standard":
@@ -4788,7 +4932,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.104 hotfix | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.107 worship-scoring | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 

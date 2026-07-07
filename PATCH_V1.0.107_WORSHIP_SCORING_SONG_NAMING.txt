@@ -1,0 +1,9 @@
+FrameZero Clips v1.0.107 — Worship Scoring & Song Naming
+
+- Score emocional de louvor: letra clara, frase sensível, parte íntima e repetição congregacional.
+- Reduz score 100 automático por volume.
+- Detecta possível nome da música pela letra transcrita.
+- Renomeia títulos/pastas com Louvor - Possível Nome.
+- Cooldown mais inteligente para louvor.
+- Bloqueia propaganda/tutorial/vídeo externo como corte de culto.
+- Sem dependência nova, sem API externa, sem fingerprint, VPS desativada.
