@@ -311,11 +311,11 @@ CONFIG = {
     "whisper_local_device_gpu": "cuda:0",
     "whisper_local_sensevoice_aceita_ptbr": False,
     "whisper_local_rejeitar_ingles_em_ptbr": True,
-    "whisper_local_fallback_vps_se_invalido": True,
+    "whisper_local_fallback_vps_se_invalido": False,
     "whisper_local_baixar_modelo_durante_gravacao": False,
     "whisper_local_vad_model": "fsmn-vad",
     "whisper_local_punc_model": "ct-punc",
-    "transcricao_modo": "local",        # v75: MLX MLX Whisper local/offline
+    "transcricao_modo": "local",        # Windows/Mac: transcricao local; VPS removida/desativada
     "whisper_vps_base_url": "http://2.25.157.230:8000",
     "transcription_engine": "mlx-whisper",
     "whisper_vps_endpoint": "/transcribe-fastwhisper",
@@ -383,8 +383,9 @@ CONFIG = {
     "modo_contexto_pregacao": True,  # entende historia/ensino/aplicacao antes de cortar
     "preferir_palavra_direcionada": True,  # prioriza trechos aplicáveis ao público
     "historia_precisa_aplicacao": True,  # evita exportar só a história sem a conclusão/palavra
-    "tipo_conteudo": "pregacao",       # selecionado no topo do painel: pregacao ou musica
-    "detectar_musica_pregacao": False, # seletor manual no painel; se True, volta ao automático
+    "tipo_conteudo": "mixed",       # legado: pregacao/musica; v102 aceita mixed/sermon/podcast/worship
+    "clip_mode": "mixed",           # mixed, sermon, podcast, worship
+    "detectar_musica_pregacao": True, # no modo misto o Core identifica fala/musica sozinho
     "musica_priorizar_refrao": True,  # em música, prioriza refrão, ponte, clímax e partes bonitas
     "ollama_internet_conectado": True,
     "musica_usar_letra_online": True,
@@ -905,6 +906,109 @@ def tipo_conteudo_atual(texto=""):
     return manual
 
 
+def clip_mode_atual():
+    """Modo principal v1.0.102: mixed, sermon, podcast ou worship.
+    Aceita nomes antigos para não quebrar painel/config de versões anteriores.
+    """
+    modo = str(config_usuario.get("clip_mode", config_usuario.get("modo_conteudo", config_usuario.get("tipo_conteudo", CONFIG.get("clip_mode", "mixed")))) or "mixed").lower().strip()
+    aliases = {
+        "misto": "mixed", "culto": "mixed", "culto_completo": "mixed", "culto completo": "mixed", "auto": "mixed", "automatico": "mixed", "automático": "mixed",
+        "pregacao": "sermon", "pregação": "sermon", "sermao": "sermon", "sermão": "sermon",
+        "podcast_cristao": "podcast", "podcast cristao": "podcast", "podcast cristão": "podcast",
+        "louvor": "worship", "musica": "worship", "música": "worship", "adoracao": "worship", "adoração": "worship",
+    }
+    modo = aliases.get(modo, modo)
+    if modo not in ("mixed", "sermon", "podcast", "worship"):
+        modo = "mixed"
+    return modo
+
+
+def tipo_conteudo_por_modo(texto=""):
+    """Adapta o modo novo ao classificador antigo de texto.
+    mixed identifica pelo texto; worship força música; sermon/podcast priorizam fala.
+    """
+    modo = clip_mode_atual()
+    if modo == "worship":
+        return "musica"
+    if modo in ("sermon", "podcast"):
+        return "pregacao"
+    return classificar_conteudo_bloco(texto or "")
+
+
+def audio_features_misto(audio, sr=16000):
+    """Análise leve de áudio só com numpy para não quebrar instalação.
+    Retorna métricas suficientes para diferenciar silêncio, fala, música dominante e clímax.
+    """
+    try:
+        a = np.asarray(audio, dtype=np.float32).flatten()
+        if len(a) == 0:
+            return {"rms":0.0,"peak":0.0,"dynamic":0.0,"zcr":0.0,"energy_score":0,"music_score":0,"speech_score":0,"kind":"silence"}
+        a = np.nan_to_num(a, nan=0.0, posinf=0.0, neginf=0.0)
+        rms = float(np.sqrt(np.mean(np.square(a))))
+        peak = float(np.max(np.abs(a))) if len(a) else 0.0
+        frame = max(256, int(sr * 0.25))
+        hop = frame
+        vals = []
+        for i in range(0, max(1, len(a)-frame+1), hop):
+            x = a[i:i+frame]
+            if len(x):
+                vals.append(float(np.sqrt(np.mean(np.square(x)))))
+        if not vals: vals = [rms]
+        med = float(np.median(vals))
+        mx = float(max(vals))
+        dynamic = float((mx - med) / max(0.001, med))
+        signs = np.sign(a)
+        zcr = float(np.mean(np.abs(np.diff(signs)) > 0)) if len(a) > 2 else 0.0
+        crest = peak / max(0.001, rms)
+        energy_score = int(max(0, min(100, (rms / 0.055) * 55 + dynamic * 18 + min(crest, 8) * 2)))
+        music_score = int(max(0, min(100, energy_score + (12 if zcr < 0.18 else 0) + (10 if dynamic > 0.7 else 0))))
+        speech_score = int(max(0, min(100, (rms / 0.045) * 45 + (18 if 0.08 <= zcr <= 0.32 else 4))))
+        if rms < float(config_usuario.get("audio_min_rms_para_status", CONFIG.get("audio_min_rms_para_status", 0.006))):
+            kind = "silence"
+        elif music_score >= max(58, speech_score + 8):
+            kind = "music"
+        elif music_score >= 50 and speech_score >= 45:
+            kind = "speech_with_music"
+        else:
+            kind = "speech"
+        return {"rms":rms,"peak":peak,"dynamic":dynamic,"zcr":zcr,"crest":crest,"energy_score":energy_score,"music_score":music_score,"speech_score":speech_score,"kind":kind}
+    except Exception as e:
+        return {"rms":0.0,"peak":0.0,"dynamic":0.0,"zcr":0.0,"energy_score":0,"music_score":0,"speech_score":0,"kind":"unknown","error":str(e)}
+
+
+ultimo_corte_musical_audio = 0.0
+
+def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio"):
+    """Gera candidato de corte para louvor/ministração mesmo quando o Whisper não devolve texto.
+    Não cria SRT falso. Só usa o áudio para clipar momento musical/emocional.
+    """
+    global ultimo_corte_musical_audio
+    modo = clip_mode_atual()
+    if modo not in ("mixed", "worship"):
+        return False
+    now_t = float(t0 or 0) + float(bloco_segundos or 0)
+    cooldown = max(35, int(config_usuario.get("cooldown_corte_seg", CONFIG.get("cooldown_corte_seg", 60))))
+    if now_t - float(ultimo_corte_musical_audio or 0) < cooldown:
+        return False
+    score = int(feats.get("music_score", feats.get("energy_score", 0)) or 0)
+    # Mais conservador para não cortar qualquer música baixa de fundo.
+    limiar = 72 if modo == "mixed" else 62
+    if feats.get("kind") == "speech_with_music":
+        score = max(score, int((feats.get("music_score",0)*0.55) + (feats.get("speech_score",0)*0.45)))
+        limiar = 78
+    if score < limiar:
+        return False
+    titulo = "Momento de louvor" if modo == "worship" else "Momento forte do culto"
+    if feats.get("dynamic",0) > 0.85:
+        titulo = "Clímax de adoração" if modo == "worship" else "Virada emocional do culto"
+    texto = "Trecho musical detectado automaticamente pelo áudio. Sem legenda forçada para evitar SRT errado."
+    razao = f"{motivo}: energia={feats.get('energy_score',0)} musica={feats.get('music_score',0)} dinamica={round(float(feats.get('dynamic',0)),2)}"
+    registrar_corte(texto, min(100, max(score, limiar)), titulo, razao, now_t, emocao="adoração", funcao="clímax musical", origem="mixed-worship-audio")
+    ultimo_corte_musical_audio = now_t
+    print(f"[music] corte candidato por áudio: score={score} tipo={feats.get('kind')} t={fmt(now_t)}")
+    return True
+
+
 def score_heuristico_musica(texto):
     """Pontuação para louvor/música. Prioriza refrão, ponte, clímax e partes bonitas."""
     original = texto.strip()
@@ -1037,7 +1141,7 @@ def score_heuristico(texto):
     Em modo automático, primeiro entende se o trecho é música/louvor ou pregação.
     """
     original = texto.strip()
-    if tipo_conteudo_atual(original) == "musica":
+    if tipo_conteudo_por_modo(original) == "musica":
         return score_heuristico_musica(original)
     normal = _norm(original)
     palavras = [p.strip(".,!?;:()[]{}\"'") for p in normal.split()]
@@ -2884,7 +2988,7 @@ def descobrir_senha_obs():
                     return str(senha), int(porta)
             else:  # global.ini
                 cp = configparser.ConfigParser()
-                cp.read(arq, encoding="utf-8")
+                cp.read(arq, encoding="utf-8-sig")
                 if cp.has_section("OBSWebSocket"):
                     senha = cp.get("OBSWebSocket", "ServerPassword", fallback="")
                     porta = cp.getint("OBSWebSocket", "ServerPort", fallback=CONFIG["obs_porta"])
@@ -4267,23 +4371,8 @@ def processar_analise_cortes(bloco_txt, t_ref, t_fim, linhas_ref=None):
     except Exception as e:
         print(f"[local] analise de cortes falhou: {e}")
 
-    # VPS/IA local antiga fica apenas como refino quando Gemini não está ativo.
-    if not gemini_pronto:
-        try:
-            cortes_ia = analisar_com_vps(bloco_txt, t_ref, t_fim)
-            if cortes_ia is not None and len(cortes_ia) > 0:
-                modo_corte = corte_modo_atual()
-                limite_ia = current_limiar() if modo_corte == "standard" else max(60, current_limiar() - 4)
-                for c in cortes_ia[:(1 if modo_corte == "standard" else 2)]:
-                    if int(c.get("score", 0) or 0) < limite_ia:
-                        continue
-                    t_corte = float(c.get("tempo", t_ref))
-                    registrar_corte(c.get("trecho", ""), int(c.get("score", 0)),
-                                    c.get("titulo", "Momento"), c.get("razao", ""), t_corte,
-                                    emocao=c.get("emocao", ""), funcao=c.get("funcao", ""), origem="vps-refino")
-                return
-        except Exception as e:
-            print(f"[vps-ia] analise async falhou: {e}")
+    # v1.0.102: VPS removida. Sem refino remoto/DeepSeek antigo.
+    # Gemini opcional continua disponível quando a pessoa coloca a chave no painel.
 
     if not disparou_local:
         pass
@@ -4385,7 +4474,7 @@ def loop_transcricao():
         print(f"[turbo] OpenAI Realtime ativo: chunks de {bloco_segundos_atual:.1f}s delay={config_usuario.get('openai_realtime_delay','high')}")
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
-        print(f"[padrao] MLX Corte Seguro: blocos de {bloco_segundos_atual:.1f}s")
+        print(f"[padrao] Corte Seguro local: blocos de {bloco_segundos_atual:.1f}s")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
@@ -4413,13 +4502,24 @@ def loop_transcricao():
         if rms >= min_rms:
             enviar_audio_status(ok=True, rms=rms, msg="áudio entrando", origem="captura")
         else:
-            enviar_audio_status(ok=False, rms=rms, msg="áudio muito baixo ou sem sinal. Confira OBS > Monitoring Device = BlackHole e Monitor and Output.", origem="captura")
+            enviar_audio_status(ok=False, rms=rms, msg="áudio muito baixo ou sem sinal. Confira OBS > Monitoring Device = BlackHole/VB-CABLE e Monitor and Output.", origem="captura")
+            # Sem sinal real, nao envia silencio/ruido para o Whisper nem para VPS.
+            # Isso evita spam de "texto invalido" e impede SRT/corte errado.
+            continue
         t0 = (time.time()-bloco_segundos_atual) - inicio_gravacao
         if t0 < 0: t0 = 0
+        feats_audio = audio_features_misto(audio, CONFIG.get("sample_rate", 16000))
+        modo_clip = clip_mode_atual()
+        if modo_clip in ("mixed", "worship") and feats_audio.get("kind") in ("music", "speech_with_music"):
+            print(f"[classifier] modo={modo_clip} tipo={feats_audio.get('kind')} fala={feats_audio.get('speech_score')} musica={feats_audio.get('music_score')} rms={feats_audio.get('rms'):.4f}")
 
         # Modo pode ser alterado pelo painel: padrao ou turbo.
         modo_configurado = str(config_usuario.get("transcricao_modo", CONFIG.get("transcricao_modo", "local"))).lower().strip()
         modo_transcricao = modo_transcricao_efetivo(modo_configurado)
+        # VPS foi removida/desativada. Se o painel antigo pedir VPS/hibrido, força local.
+        if modo_transcricao in ("vps", "hibrido"):
+            print("[asr] VPS desativada nesta versao; usando transcricao local.")
+            modo_transcricao = "local"
         transcricao_motor = str(config_usuario.get("transcricao_motor", CONFIG.get("transcricao_motor", "padrao"))).lower().strip()
         if transcricao_motor not in ("padrao", "turbo"):
             transcricao_motor = "padrao"
@@ -4463,39 +4563,34 @@ def loop_transcricao():
                 except Exception as e2:
                     print(f"[turbo] fallback MLX tambem falhou: {e2}")
                     continue
-            elif modo_transcricao != "vps" and ("MLX Whisper local" in erro or "whisper" in erro.lower() or "texto invalido" in erro.lower()):
-                print(f"[mlx-local] indisponivel: {e}. Use modo VPS ou instale MLX Whisper local no venv.")
-                enviar_vps_status(ok=True, msg="MLX Whisper local indisponivel; usando VPS atual", modo="vps", url=_vps_url())
-                try:
-                    texto_vps, segmentos_vps = transcrever_vps(audio)
-                    texto_bloco = limpar_texto_transcricao(limpar_tags_asr(texto_vps))
-                    if texto_whisper_invalido(texto_bloco, origem="vps"):
-                        raise RuntimeError("VPS retornou texto invalido; bloqueado para nao gerar SRT/corte errado")
-                    class SegObj:
-                        def __init__(self, start, end, text):
-                            self.start = float(start or 0); self.end = float(end or bloco_segundos_atual); self.text = text or ""
-                    segs_lista = [SegObj(0, bloco_segundos_atual, texto_bloco)]
-                    origem_transcricao = "vps"
-                except Exception as e2:
-                    print(f"[vps-asr] falhou depois do fallback automatico para VPS: {e2}")
-                    enviar_vps_status(ok=False, msg=f"VPS falhou: {e2}", modo="vps", url=_vps_url())
+            elif modo_transcricao != "vps" and "texto invalido" in erro.lower():
+                if clip_mode_atual() in ("mixed", "worship") and feats_audio.get("kind") in ("music", "speech_with_music"):
+                    ok_music = registrar_corte_musical_audio(t0, bloco_segundos_atual, feats_audio, motivo="whisper-invalido-musica")
+                    print(f"[asr] transcricao invalida, mas o bloco parece {feats_audio.get('kind')}; VPS desativada; motor musical {'gerou candidato' if ok_music else 'avaliou e aguardou'}. ({e})")
                     continue
+                print(f"[asr] bloco descartado: transcricao invalida/sem fala PT-BR confiavel; VPS desativada. ({e})")
+                continue
+            elif "whisper" in erro.lower() or "mlx" in erro.lower() or "faster" in erro.lower():
+                if clip_mode_atual() in ("mixed", "worship") and feats_audio.get("kind") in ("music", "speech_with_music"):
+                    ok_music = registrar_corte_musical_audio(t0, bloco_segundos_atual, feats_audio, motivo="asr-falhou-musica")
+                    print(f"[asr-local] ASR falhou, mas o bloco parece {feats_audio.get('kind')}; VPS desativada; motor musical {'gerou candidato' if ok_music else 'aguardou'}. ({e})")
+                    continue
+                # Sem VPS: nao tenta fallback remoto. Descarta o bloco e espera o proximo.
+                print(f"[asr-local] bloco descartado: transcricao local falhou ou retornou texto invalido. VPS desativada. ({e})")
+                continue
             else:
-                print(f"[vps-asr] falhou: {e}")
-                usar_fallback = bool(config_usuario.get("vps_fallback_local", CONFIG.get("vps_fallback_local", False)))
-                enviar_vps_status(ok=False, msg=f"VPS falhou: {e}", modo="fallback" if usar_fallback else "vps", url=_vps_url())
-                if usar_fallback and str(config_usuario.get("transcricao_modo", CONFIG.get("transcricao_modo", "vps"))).lower() != "vps":
-                    texto_bloco, segs_lista = transcrever_local(carregar_modelo_local(), audio)
-                    origem_transcricao = "local-fallback"
-                else:
-                    print("[vps-asr] VPS falhou, mas fallback local esta desligado. Nao vou carregar MLX Whisper local.")
-                    continue
+                print(f"[asr-local] falhou: {e}")
+                continue
         if pendencia_transcricao:
             texto_bloco = limpar_texto_transcricao(pendencia_transcricao + " " + texto_bloco)
             pendencia_transcricao = ""
 
         # Segurança final: nada de lixo do ASR no painel, SRT ou gatilho de corte.
         if texto_whisper_invalido(texto_bloco, origem=origem_transcricao):
+            if clip_mode_atual() in ("mixed", "worship") and feats_audio.get("kind") in ("music", "speech_with_music"):
+                ok_music = registrar_corte_musical_audio(t0, bloco_segundos_atual, feats_audio, motivo="texto-invalido-pos-asr")
+                print(f"[whisper-{origem_transcricao}] texto invalido; bloco tratado como {feats_audio.get('kind')}; VPS desativada; motor musical {'gerou candidato' if ok_music else 'aguardou'}")
+                continue
             print(f"[whisper-{origem_transcricao}] bloco descartado: texto invalido/sem PT-BR confiavel")
             continue
 
@@ -4523,7 +4618,7 @@ def loop_transcricao():
                     if trad:
                         linha["traducao"] = trad
                         linha["traducao_idioma"] = config_usuario.get("live_translation_target", "en")
-                volume_picos[round(t,1)] = pico_bloco
+                volume_picos[round(t,1)] = bool(pico_bloco or (clip_mode_atual()=="mixed" and feats_audio.get("kind")=="speech_with_music" and feats_audio.get("music_score",0)>=55))
                 # limpa mapa antigo para não crescer indefinidamente
                 for kk in list(volume_picos.keys()):
                     try:
@@ -4635,8 +4730,9 @@ async def handler(ws):
         "duracao_corte_min":config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 15)),
         "duracao_corte_max":config_usuario.get("duracao_corte_max", CONFIG.get("duracao_corte_max", 45)),
         "corte_exato_automatico":config_usuario.get("corte_exato_automatico", CONFIG.get("corte_exato_automatico", True)),
-        "tipo_conteudo":config_usuario.get("tipo_conteudo", CONFIG.get("tipo_conteudo", "pregacao")),
-        "detectar_musica_pregacao":config_usuario.get("detectar_musica_pregacao", CONFIG.get("detectar_musica_pregacao", False)),
+        "clip_mode":clip_mode_atual(),
+        "tipo_conteudo":config_usuario.get("tipo_conteudo", CONFIG.get("tipo_conteudo", "mixed")),
+        "detectar_musica_pregacao":config_usuario.get("detectar_musica_pregacao", CONFIG.get("detectar_musica_pregacao", True)),
         "musica_usar_letra_online":config_usuario.get("musica_usar_letra_online", CONFIG.get("musica_usar_letra_online", True)),
         "ollama_internet_conectado":config_usuario.get("ollama_internet_conectado", CONFIG.get("ollama_internet_conectado", True)),
         "musica_confianca_minima_letra":config_usuario.get("musica_confianca_minima_letra", CONFIG.get("musica_confianca_minima_letra", 0.82))} , ensure_ascii=False))
@@ -4960,6 +5056,18 @@ async def handler(ws):
                 salvar_config_usuario(updates)
                 enviar({"tipo":"gemini_config_ok", **updates})
                 print(f"[gemini] enabled={ativo} model={updates['gemini_model']} intervalo={updates['gemini_intervalo_seg']}s")
+            elif acao in ("salvar_clip_mode", "salvar_modo_conteudo"):
+                modo = str(req.get("clip_mode", req.get("modo", req.get("tipo_conteudo", "mixed")))).lower().strip()
+                aliases = {"misto":"mixed","culto":"mixed","pregacao":"sermon","pregação":"sermon","louvor":"worship","musica":"worship","música":"worship"}
+                modo = aliases.get(modo, modo)
+                if modo not in ("mixed", "sermon", "podcast", "worship"):
+                    modo = "mixed"
+                tipo_legado = "musica" if modo == "worship" else ("pregacao" if modo in ("sermon", "podcast") else "mixed")
+                updates = {"clip_mode": modo, "modo_conteudo": modo, "tipo_conteudo": tipo_legado, "detectar_musica_pregacao": modo == "mixed"}
+                config_usuario.update(updates)
+                salvar_config_usuario(updates)
+                enviar({"tipo":"clip_mode_ok", **updates})
+                print(f"[config] clip_mode={modo} tipo_legado={tipo_legado}")
             elif acao == "salvar_corte_config":
                 modo = str(req.get("corte_modo", req.get("modo_corte", "standard"))).lower().strip()
                 if modo not in ("fast", "standard"):

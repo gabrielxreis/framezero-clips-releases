@@ -20,9 +20,12 @@ function Read-JsonFile($path){
 }
 function Copy-TreeSafe([string]$src,[string]$dst){
   if(!(Test-Path $dst)){ New-Item -ItemType Directory -Force -Path $dst | Out-Null }
-  $args = @($src, $dst, '/E', '/NFL','/NDL','/NJH','/NJS','/NC','/NS','/NP', '/XD', 'venv', '__pycache__', '.pytest_cache', 'logs', '/XF', '.DS_Store')
-  $p = Start-Process -FilePath robocopy.exe -ArgumentList $args -PassThru -Wait -NoNewWindow
-  if($p.ExitCode -ge 8){ throw "robocopy falhou com codigo $($p.ExitCode)" }
+  # IMPORTANTE: nao usar Start-Process -ArgumentList aqui.
+  # Em caminhos com espaco (ex.: C:\Users\Rodrigo Santana), o robocopy recebia
+  # C:\Users\Rodrigo como origem e quebrava a atualizacao.
+  & robocopy.exe $src $dst /E /NFL /NDL /NJH /NJS /NC /NS /NP /XD venv __pycache__ .pytest_cache logs /XF .DS_Store
+  $code = $LASTEXITCODE
+  if($code -ge 8){ throw "robocopy falhou com codigo $code" }
 }
 try {
   if([string]::IsNullOrWhiteSpace($Stable)){ $Stable = Join-Path $env:APPDATA 'obs-studio\FrameZero' }

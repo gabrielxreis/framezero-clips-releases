@@ -1,0 +1,16 @@
+FrameZero Clips v1.0.102 - Mixed Worship Mode
+
+Alterações Windows/Core:
+- Adiciona clip_mode: mixed, sermon, podcast, worship.
+- Padrão: mixed / culto completo.
+- Painel: seletor Misto, Pregação, Podcast e Louvor.
+- Core salva clip_mode no config.json.
+- Remove refino/VPS antigo no fluxo de análise quando Gemini não está ativo.
+- Mantém VPS desativada no ASR.
+- Adiciona classificador leve de áudio com numpy: speech, speech_with_music, music, silence.
+- Se Whisper falhar em música/louvor, não trata como erro final: avalia energia/dinâmica e pode gerar candidato de corte musical.
+- Pregação com fundo musical no modo misto recebe bônus de presença/pico.
+- Não altera instalador Windows congelado nem uninstaller travado.
+- Não altera Mac.
+
+Observação: o detector musical desta release é MVP seguro, sem dependência nova pesada, para não quebrar instalação.
