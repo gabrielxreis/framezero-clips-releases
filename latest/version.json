@@ -2,13 +2,13 @@
   "app": "FrameZero Clips",
   "latest_version": "1.1.8",
   "min_required_version": "1.1.8",
-  "release_name": "FrameZero Clips 1.1.8 - v1.0.102 Mixed Worship Mode",
+  "release_name": "FrameZero Clips 1.1.8 - v1.0.103 Worship Intelligence",
   "release_channel": "stable",
   "force_update": false,
-  "message": "Windows: adiciona modos Misto, Pregação, Podcast e Louvor; música/louvor não depende mais só do Whisper; VPS permanece desativada.",
+  "message": "Windows: cortes padrão 35s a 90s, Culto Inteligente, louvor automático, pregação traduzida EN/PT-BR e reparo automático de dependências Python. Mac preservado.",
   "windows_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/windows/FrameZero_Clips_1.1.8_Windows.zip",
   "mac_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/mac/FrameZero_Clips_1.1.8_Mac.zip",
-  "online_installer_version": "1.0.102",
+  "online_installer_version": "1.0.103",
   "online_installer_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/installers/FrameZero_Installer_1.0_Windows.bat",
   "online_installer_mac_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/installers/FrameZero_Installer_1.0_Mac.command",
   "uninstaller_windows_url": "https://github.com/gabrielxreis/framezero-clips-releases/raw/main/uninstallers/FrameZero_Uninstaller_1.0_Windows.bat",
@@ -74,5 +74,8 @@
   "windows_package": "windows/FrameZero_Clips_1.1.8_Windows.zip",
   "windows_installer_ui_version": "1.0.91",
   "mac_installer_ui_version": "1.0.71",
-  "name": "FrameZero Clips 1.1.8 - v1.0.102 Mixed Worship Mode"
+  "name": "FrameZero Clips 1.1.8 - v1.0.102 Mixed Worship Mode",
+  "package_version": "1.0.103",
+  "windows_version": "1.0.103",
+  "mac_version": "1.0.102"
 }

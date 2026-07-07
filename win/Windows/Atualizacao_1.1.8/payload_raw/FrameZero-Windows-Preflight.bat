@@ -11,29 +11,31 @@ echo Verificando VB-CABLE, Aitum Vertical e Aitum Multistream antes de iniciar..
 call :INSTALL_VBCABLE_WINDOWS
 call :INSTALL_AITUM_VERTICAL_WINDOWS
 call :INSTALL_AITUM_MULTISTREAM_WINDOWS
-call :ENSURE_SOUNDCARD_PYTHON
+call :ENSURE_FRAMEZERO_PYTHON_DEPS
 
 echo Verificacao de componentes concluida.
 exit /b 0
 
 
-:ENSURE_SOUNDCARD_PYTHON
+:ENSURE_FRAMEZERO_PYTHON_DEPS
 echo.
-echo Verificando suporte Python para loopback de saida do Windows...
+echo Verificando dependencias Python do FrameZero...
 set "FZ_APP=%APPDATA%\obs-studio\FrameZero\app"
 set "FZ_PY=%FZ_APP%\venv\Scripts\python.exe"
 if not exist "%FZ_PY%" (
   echo Aviso: venv Python ainda nao existe. O instalador de Clips vai preparar depois.
   exit /b 0
 )
-"%FZ_PY%" -c "import soundcard" >nul 2>nul
+"%FZ_PY%" -c "import websockets, sounddevice, soundcard, numpy, requests; import obsws_python; print('OK')" >nul 2>nul
 if not errorlevel 1 (
-  echo OK: soundcard instalado.
+  echo OK: dependencias Python principais instaladas.
   exit /b 0
 )
-echo Instalando suporte soundcard para loopback...
-"%FZ_PY%" -m pip install --upgrade "soundcard>=0.4.3"
-if errorlevel 1 echo Aviso: nao consegui instalar soundcard agora. Continuando.
+echo Instalando/reparando dependencias Python principais...
+"%FZ_PY%" -m ensurepip --upgrade >nul 2>nul
+"%FZ_PY%" -m pip install --upgrade pip
+"%FZ_PY%" -m pip install "websockets>=12.0" "sounddevice>=0.4.6" "soundcard>=0.4.3" "numpy>=1.24.0" "requests>=2.31.0" "obsws-python>=1.7.0" "faster-whisper>=1.0.3" "scipy>=1.13.0"
+if errorlevel 1 echo Aviso: alguma dependencia Python nao instalou agora. O Core tentara iniciar mesmo assim.
 exit /b 0
 
 :DOWNLOAD_GITHUB_ASSET_WINDOWS

@@ -1,0 +1,16 @@
+FrameZero Clips v1.0.103 — Worship Intelligence + Culto Inteligente
+
+Mudanças seguras aplicadas sobre a base enviada:
+- Duração padrão oficial dos cortes: 35s a 90s.
+- Modo Culto Inteligente: Misto / Pregação / Pregação traduzida / Podcast / Louvor.
+- Inteligência de Louvor: automática, desligada ou sempre ligada.
+- Contexto bilíngue EN + PT-BR automático: preserva fala original e tradução no mesmo corte.
+- Inglês válido em pregação traduzida não é mais tratado como erro de PT-BR.
+- Análise musical avançada opcional: se scipy/librosa existir, melhora score; se não existir, não quebra.
+- Windows Preflight agora repara dependências Python principais: websockets, sounddevice, soundcard, numpy, requests, obsws-python, faster-whisper e scipy.
+- VPS permanece desativada no fluxo de ASR ao vivo.
+
+Não modificado:
+- Instalador Windows principal não foi reescrito.
+- Uninstaller Windows não foi reescrito.
+- Pacote Mac não foi alterado.

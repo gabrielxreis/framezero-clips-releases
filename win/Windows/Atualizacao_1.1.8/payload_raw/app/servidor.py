@@ -1,8 +1,8 @@
 """
-FrameZero Clips 1.1.8 - Plataforma Completa + Global All Languages + Clean Install + Plugin Detect Fix integrado ao OBS.
+FrameZero Clips 1.1.8 - v1.0.103 Worship Intelligence + Culto Inteligente.
 
 Recursos:
-  1. Transcreve em PT-BR usando MLX Whisper local ou VPS.
+  1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
   2. Timestamp zera quando o OBS comeca a gravar/transmitir.
   3. Deteccao de cortes:
        - SEM chave OpenAI: modo automatico local com cunho viral/emocional
@@ -35,6 +35,22 @@ import base64
 from pathlib import Path
 
 import numpy as np
+
+# Dependências avançadas opcionais. Não são obrigatórias para iniciar o Core.
+# Se não existirem, o FrameZero usa o detector leve para não quebrar máquinas fracas.
+try:
+    import scipy.signal as _fz_scipy_signal
+    FZ_SCIPY_OK = True
+except Exception:
+    _fz_scipy_signal = None
+    FZ_SCIPY_OK = False
+
+try:
+    import librosa as _fz_librosa
+    FZ_LIBROSA_OK = True
+except Exception:
+    _fz_librosa = None
+    FZ_LIBROSA_OK = False
 
 # Fix: no Windows ARM64, sounddevice procura libportaudioarm64.dll mas o pacote
 # instala com nome libportaudio64bit.dll. Copia antes de importar.
@@ -368,10 +384,10 @@ CONFIG = {
     "cooldown_corte_seg": 60,    # v81: Corte Seguro segura para nao picotar assunto
     "segundos_clipe": 120,       # quanto o Replay Buffer guarda pra tras (ajuste no OBS tambem)
     "intervalo_ia_seg": 15,      # v81: Corte Seguro analisa com mais contexto
-    "duracao_corte_min": 15,     # corte final minimo padrao
-    "duracao_corte_max": 60,     # v81: corte seguro maximo padrao
-    "margem_antes_corte": 10,    # segundos antes do pico emocional
-    "margem_depois_corte": 8,   # segundos depois do pico emocional
+    "duracao_corte_min": 35,     # v1.0.103: corte final minimo padrao
+    "duracao_corte_max": 90,     # v1.0.103: corte seguro maximo padrao
+    "margem_antes_corte": 22,    # segundos antes do pico emocional
+    "margem_depois_corte": 14,   # segundos depois do pico emocional
     "corte_exato_automatico": True,
     "usar_srt_como_timecode": True,     # usa timestamps da transcrição/SRT como fonte de corte exato
     "srt_idioma": "pt-BR",
@@ -384,8 +400,16 @@ CONFIG = {
     "preferir_palavra_direcionada": True,  # prioriza trechos aplicáveis ao público
     "historia_precisa_aplicacao": True,  # evita exportar só a história sem a conclusão/palavra
     "tipo_conteudo": "mixed",       # legado: pregacao/musica; v102 aceita mixed/sermon/podcast/worship
-    "clip_mode": "mixed",           # mixed, sermon, podcast, worship
+    "clip_mode": "mixed",           # mixed, sermon, podcast, worship, bilingual_sermon
     "detectar_musica_pregacao": True, # no modo misto o Core identifica fala/musica sozinho
+    "worship_intelligence": "auto",  # auto, off, always: análise musical avançada só quando precisa
+    "performance_mode": "auto",      # auto, light, advanced
+    "bilingual_context": "auto",     # auto/off/on: pregação EN + tradução PT-BR
+    "bilingual_preserve_original_translation": True,
+    "bilingual_min_window_sec": 45,
+    "bilingual_max_window_sec": 90,
+    "smart_cult_service_mode": True,
+    "manual_moment": "auto",         # auto, sermon, worship, ministry
     "musica_priorizar_refrao": True,  # em música, prioriza refrão, ponte, clímax e partes bonitas
     "ollama_internet_conectado": True,
     "musica_usar_letra_online": True,
@@ -449,6 +473,33 @@ def salvar_config_usuario(d):
 
 config_usuario = carregar_config_usuario()
 
+def migrar_config_v103():
+    """Aplica novos padrões seguros sem apagar preferências avançadas do usuário.
+    Se vier das versões 1.0.102/anteriores com 15/45/60s, migra para 35-90s.
+    """
+    try:
+        updates = {}
+        mn = int(config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 35)) or 35)
+        mx = int(config_usuario.get("duracao_corte_max", CONFIG.get("duracao_corte_max", 90)) or 90)
+        if mn < 35:
+            updates["duracao_corte_min"] = 35
+        if mx < 90:
+            updates["duracao_corte_max"] = 90
+        for k in ("worship_intelligence", "performance_mode", "bilingual_context", "manual_moment"):
+            if k not in config_usuario:
+                updates[k] = CONFIG.get(k)
+        if "smart_cult_service_mode" not in config_usuario:
+            updates["smart_cult_service_mode"] = True
+        if "bilingual_preserve_original_translation" not in config_usuario:
+            updates["bilingual_preserve_original_translation"] = True
+        if updates:
+            config_usuario.update(updates)
+            salvar_config_usuario(updates)
+            print(f"[config] migração v1.0.103 aplicada: duração={config_usuario.get('duracao_corte_min')}-{config_usuario.get('duracao_corte_max')}s culto_inteligente={config_usuario.get('smart_cult_service_mode')}")
+    except Exception as e:
+        print(f"[config] migração v1.0.103 ignorada: {e}")
+
+migrar_config_v103()
 
 
 # ----------------------------- GLOBAL LANGUAGE RULES v1.1.3 -----------------------------
@@ -914,12 +965,45 @@ def clip_mode_atual():
     aliases = {
         "misto": "mixed", "culto": "mixed", "culto_completo": "mixed", "culto completo": "mixed", "auto": "mixed", "automatico": "mixed", "automático": "mixed",
         "pregacao": "sermon", "pregação": "sermon", "sermao": "sermon", "sermão": "sermon",
+        "pregacao_traduzida": "bilingual_sermon", "pregação traduzida": "bilingual_sermon", "traduzida": "bilingual_sermon", "bilingue": "bilingual_sermon", "bilíngue": "bilingual_sermon",
         "podcast_cristao": "podcast", "podcast cristao": "podcast", "podcast cristão": "podcast",
         "louvor": "worship", "musica": "worship", "música": "worship", "adoracao": "worship", "adoração": "worship",
     }
     modo = aliases.get(modo, modo)
-    if modo not in ("mixed", "sermon", "podcast", "worship"):
+    if modo not in ("mixed", "sermon", "podcast", "worship", "bilingual_sermon"):
         modo = "mixed"
+    return modo
+
+def manual_moment_atual():
+    momento = str(config_usuario.get("manual_moment", CONFIG.get("manual_moment", "auto")) or "auto").lower().strip()
+    aliases = {"pregacao":"sermon","pregação":"sermon","louvor":"worship","adoracao":"worship","adoração":"worship","ministracao":"ministry","ministração":"ministry","apelo":"ministry"}
+    momento = aliases.get(momento, momento)
+    if momento not in ("auto", "sermon", "worship", "ministry"):
+        momento = "auto"
+    return momento
+
+def worship_intelligence_atual():
+    modo = str(config_usuario.get("worship_intelligence", CONFIG.get("worship_intelligence", "auto")) or "auto").lower().strip()
+    aliases = {"automatica":"auto", "automática":"auto", "desligada":"off", "ligada":"always", "sempre":"always", "avancada":"always", "avançada":"always"}
+    modo = aliases.get(modo, modo)
+    if modo not in ("auto", "off", "always"):
+        modo = "auto"
+    return modo
+
+def performance_mode_atual():
+    modo = str(config_usuario.get("performance_mode", CONFIG.get("performance_mode", "auto")) or "auto").lower().strip()
+    aliases = {"leve":"light", "avancado":"advanced", "avançado":"advanced", "automatico":"auto", "automático":"auto"}
+    modo = aliases.get(modo, modo)
+    if modo not in ("auto", "light", "advanced"):
+        modo = "auto"
+    return modo
+
+def bilingual_context_atual():
+    modo = str(config_usuario.get("bilingual_context", CONFIG.get("bilingual_context", "auto")) or "auto").lower().strip()
+    aliases = {"automatico":"auto", "automático":"auto", "ligado":"on", "ativado":"on", "desligado":"off"}
+    modo = aliases.get(modo, modo)
+    if modo not in ("auto", "on", "off"):
+        modo = "auto"
     return modo
 
 
@@ -930,7 +1014,7 @@ def tipo_conteudo_por_modo(texto=""):
     modo = clip_mode_atual()
     if modo == "worship":
         return "musica"
-    if modo in ("sermon", "podcast"):
+    if modo in ("sermon", "podcast", "bilingual_sermon"):
         return "pregacao"
     return classificar_conteudo_bloco(texto or "")
 
@@ -1083,14 +1167,15 @@ def duracao_cortes_config():
     Esta função é a autoridade única para evitar clipes de Replay Buffer com 2 minutos.
     """
     try:
-        mn = int(config_usuario.get("duracao_corte_min", config_usuario.get("chunk_seconds_min", CONFIG.get("duracao_corte_min", 15))))
+        mn = int(config_usuario.get("duracao_corte_min", config_usuario.get("chunk_seconds_min", CONFIG.get("duracao_corte_min", 35))))
     except Exception:
-        mn = int(CONFIG.get("duracao_corte_min", 15))
+        mn = int(CONFIG.get("duracao_corte_min", 35))
     try:
-        mx = int(config_usuario.get("duracao_corte_max", config_usuario.get("chunk_seconds_max", CONFIG.get("duracao_corte_max", 45))))
+        mx = int(config_usuario.get("duracao_corte_max", config_usuario.get("chunk_seconds_max", CONFIG.get("duracao_corte_max", 90))))
     except Exception:
-        mx = int(CONFIG.get("duracao_corte_max", 45))
-    mn = max(5, min(300, mn))
+        mx = int(CONFIG.get("duracao_corte_max", 90))
+    # Padrão oficial v1.0.103: 35s a 90s. Mantém limite superior seguro.
+    mn = max(35, min(300, mn))
     mx = max(mn, min(300, mx))
     return mn, mx
 
@@ -2047,6 +2132,105 @@ def limpar_tags_asr(txt):
     t = re.sub(r"\b(?:EMO\s*_\s*UNKNOWN|S\s*pe\s*ech|withi\s*tn|Speech)\b", " ", t, flags=re.I)
     return re.sub(r"\s+", " ", t).strip()
 
+def detectar_idioma_linha_simples(txt):
+    """Detector leve EN/PT-BR para culto traduzido. Não substitui Whisper; só evita descartar inglês válido."""
+    low = str(txt or "").lower()
+    tokens = re.findall(r"[a-zA-ZÀ-ÿ]+", low)
+    if not tokens:
+        return "unknown", 0
+    pt_words = set("que de do da dos das não nao você voce pra para com uma um ele ela deus senhor jesus gente agora aqui ali porque então entao família familia igreja vida hoje quando meu minha nosso nossa esta está ser ter foi vai se eu nos nós o a os as em no na por mais como".split())
+    en_words = set("the and but with within now home give simple day their father child children table presence god lord jesus you your he she will if are is was be see who what where when remain anointed holy glory come receive seat seated high place spirit".split())
+    pt = sum(1 for t in tokens if _norm(t) in pt_words)
+    en = sum(1 for t in tokens if t in en_words)
+    tem_pt_acento = bool(re.search(r"[áàâãéêíóôõúçÁÀÂÃÉÊÍÓÔÕÚÇ]", str(txt or "")))
+    if tem_pt_acento:
+        pt += 1
+    if en >= max(2, pt + 1):
+        return "en", en
+    if pt >= max(2, en):
+        return "pt", pt
+    return "unknown", max(pt, en)
+
+def contexto_bilingue_ativo(linhas_ref=None, texto_atual=""):
+    """Ativa quando há alternância EN/PT ou quando o usuário escolhe Pregação traduzida."""
+    modo = clip_mode_atual()
+    conf = bilingual_context_atual()
+    if conf == "off":
+        return False
+    if conf == "on" or modo == "bilingual_sermon":
+        return True
+    if modo not in ("mixed", "sermon", "bilingual_sermon"):
+        return False
+    pares = list(linhas_ref or [])[-10:]
+    langs = []
+    for _, tx in pares:
+        lang, score = detectar_idioma_linha_simples(tx)
+        if score >= 2 and lang in ("en", "pt"):
+            langs.append(lang)
+    if texto_atual:
+        lang, score = detectar_idioma_linha_simples(texto_atual)
+        if score >= 2 and lang in ("en", "pt"):
+            langs.append(lang)
+    return ("en" in langs and "pt" in langs)
+
+def ajustar_intervalo_por_culto_inteligente(intervalo_base, feats_audio=None):
+    """Mantém análise leve sempre e só intensifica louvor quando realmente parece louvor."""
+    try:
+        if not bool(config_usuario.get("smart_cult_service_mode", CONFIG.get("smart_cult_service_mode", True))):
+            return intervalo_base
+        wi = worship_intelligence_atual()
+        if wi == "off":
+            return intervalo_base
+        momento = manual_moment_atual()
+        kind = (feats_audio or {}).get("kind")
+        if momento == "worship" or wi == "always":
+            return max(10.0, min(float(intervalo_base), 15.0))
+        if wi == "auto" and kind in ("music", "speech_with_music") and float((feats_audio or {}).get("music_score", 0) or 0) >= 65:
+            return max(12.0, min(float(intervalo_base), 18.0))
+        return intervalo_base
+    except Exception:
+        return intervalo_base
+
+def worship_advanced_enabled(feats_audio=None):
+    """Camada avançada opcional. Se faltar librosa/scipy, não quebra."""
+    if worship_intelligence_atual() == "off":
+        return False
+    if performance_mode_atual() == "light":
+        return False
+    if worship_intelligence_atual() == "always" or manual_moment_atual() == "worship":
+        return bool(FZ_LIBROSA_OK or FZ_SCIPY_OK)
+    if (feats_audio or {}).get("kind") in ("music", "speech_with_music") and float((feats_audio or {}).get("music_score", 0) or 0) >= 65:
+        return bool(FZ_LIBROSA_OK or FZ_SCIPY_OK)
+    return False
+
+def audio_features_musicais_avancadas(audio, sr=16000):
+    """Análise opcional de melodia/energia. Roda em baixa frequência e nunca bloqueia o Core."""
+    out = {"advanced": False, "melody_score": 0, "crescendo_score": 0, "tempo_score": 0}
+    try:
+        a = np.asarray(audio, dtype=np.float32).flatten()
+        if len(a) < sr:
+            return out
+        if FZ_LIBROSA_OK and _fz_librosa is not None:
+            y = a
+            # Reduz custo: trabalha no sample rate já baixo do FrameZero.
+            rms = _fz_librosa.feature.rms(y=y, frame_length=1024, hop_length=512)[0]
+            if len(rms) > 3:
+                crescendo = float(max(0.0, rms[-1] - np.median(rms)) / max(1e-4, np.median(rms)))
+                out["crescendo_score"] = int(max(0, min(100, crescendo * 45)))
+            zcr = _fz_librosa.feature.zero_crossing_rate(y, frame_length=1024, hop_length=512)[0]
+            out["melody_score"] = int(max(0, min(100, (1.0 - float(np.median(zcr))) * 80)))
+            out["advanced"] = True
+        elif FZ_SCIPY_OK and _fz_scipy_signal is not None:
+            # Fallback leve com scipy: envelope + variação espectral simples.
+            env = np.abs(_fz_scipy_signal.hilbert(a))
+            if len(env) > 10:
+                out["crescendo_score"] = int(max(0, min(100, (float(np.percentile(env, 90)) / max(1e-4, float(np.median(env)))) * 18)))
+            out["advanced"] = True
+        return out
+    except Exception as e:
+        out["error"] = str(e)
+        return out
+
 def texto_whisper_invalido(txt, origem="local"):
     """Bloqueia lixo de ASR antes de virar SRT/corte.
 
@@ -2075,6 +2259,15 @@ def texto_whisper_invalido(txt, origem="local"):
     # acima (tags internas, CJK indevido, texto vazio) para não descartar inglês/espanhol/etc.
     if whisper_language_atual() not in ("pt", "pt-BR", "pt-PT"):
         return False
+
+    # v1.0.103: em culto traduzido, inglês curto pode ser a fala original do pregador.
+    # Não descartar automaticamente EN quando o modo bilingue está ativo/automático.
+    try:
+        lang_detectado, lang_score = detectar_idioma_linha_simples(limpo)
+        if lang_detectado == "en" and lang_score >= 2 and bilingual_context_atual() != "off" and clip_mode_atual() in ("mixed", "sermon", "bilingual_sermon"):
+            return False
+    except Exception:
+        pass
 
     low = limpo.lower()
     norm_low = _norm(limpo)
@@ -2108,7 +2301,8 @@ def texto_whisper_invalido(txt, origem="local"):
         if lixo_sinais:
             return True
         if len(ingles_sinais) >= 1 and len(portugues_sinais) == 0 and len(tokens) <= 10:
-            return True
+            if not (bilingual_context_atual() != "off" and clip_mode_atual() in ("mixed", "sermon", "bilingual_sermon")):
+                return True
         if long_words and len(portugues_sinais) == 0 and len(tokens) <= 6:
             return True
 
@@ -4251,7 +4445,7 @@ def cortes_contextuais_score60(linhas_ref):
         limiar = 60
     if limiar > 60:
         return []
-    # Usa uma janela recente de até 75s, pulando boas-vindas/repetição bíblica quando possível.
+    # Usa uma janela recente de até 90s, pulando boas-vindas/repetição bíblica quando possível.
     pares = [(float(tt or 0), (tx or '').strip()) for tt, tx in linhas_ref if (tx or '').strip()]
     if not pares:
         return []
@@ -4260,7 +4454,7 @@ def cortes_contextuais_score60(linhas_ref):
     gatilhos_inicio = re.compile(r"\b(voc[eê] sabe|existem algumas pessoas|quem conhece|tem uma|tem um|eu lembro|sabe aquela|uma vez|quando eu|par[aá]bola|hist[oó]ria|olha|presta aten[cç][aã]o)\b", re.I)
     lixo_inicio = re.compile(r"\b(muito bom estar aqui|boa noite|receber todos|abra a sua b[ií]blia|lucas cap[ií]tulo|lucas 18|am[eé]m)\b", re.I)
     for idx, (tt, tx) in enumerate(pares):
-        if end_t - tt > 80:
+        if end_t - tt > 90:
             continue
         if gatilhos_inicio.search(tx) and not lixo_inicio.search(tx):
             candidatos_inicio.append(idx)
@@ -4272,11 +4466,11 @@ def cortes_contextuais_score60(linhas_ref):
     if not trecho_pares:
         return []
     start_t = trecho_pares[0][0]
-    if end_t - start_t < 22:
+    if end_t - start_t < 35:
         return []
-    if end_t - start_t > 75:
-        # Mantém os últimos 60-70s do mesmo assunto se a janela ficou grande demais.
-        trecho_pares = [(tt, tx) for tt, tx in trecho_pares if end_t - tt <= 70]
+    if end_t - start_t > 90:
+        # Mantém os últimos 75-90s do mesmo assunto se a janela ficou grande demais.
+        trecho_pares = [(tt, tx) for tt, tx in trecho_pares if end_t - tt <= 90]
         if not trecho_pares:
             return []
         start_t = trecho_pares[0][0]
@@ -4350,6 +4544,29 @@ def processar_analise_cortes(bloco_txt, t_ref, t_fim, linhas_ref=None):
                 return
         except Exception as e:
             print(f"[gemini] analise falhou; usando fallback local: {e}")
+
+    # v1.0.103: culto bilingue EN/PT. Se o contexto tem as duas línguas,
+    # só libera corte com janela maior para preservar original + tradução.
+    try:
+        if contexto_bilingue_ativo(linhas_ref, bloco_txt):
+            min_bi = float(config_usuario.get("bilingual_min_window_sec", CONFIG.get("bilingual_min_window_sec", 45)) or 45)
+            max_bi = float(config_usuario.get("bilingual_max_window_sec", CONFIG.get("bilingual_max_window_sec", 90)) or 90)
+            if linhas_ref:
+                end_t_bi = float(linhas_ref[-1][0])
+                pares_bi = [(float(tt), tx) for tt, tx in linhas_ref if end_t_bi - float(tt) <= max_bi]
+                dur_bi = end_t_bi - float(pares_bi[0][0]) if pares_bi else 0
+                if dur_bi >= min_bi:
+                    texto_bi = " ".join(tx for _, tx in pares_bi).strip()
+                    langs_bi = [detectar_idioma_linha_simples(tx)[0] for _, tx in pares_bi]
+                    if "en" in langs_bi and "pt" in langs_bi and len(texto_bi.split()) >= 45:
+                        score_bi = 84
+                        if re.search(r"\b(Deus|Jesus|Senhor|God|Lord|presence|presen[cç]a|esp[ií]rito|spirit|father|pai|mesa|table|anointed|ungido)\b", texto_bi, re.I):
+                            score_bi = 90
+                        titulo_bi = titulo_local(texto_bi, "fé", "pregação traduzida")
+                        registrar_corte(texto_bi, score_bi, titulo_bi, "pregação traduzida: preservou fala original em inglês + tradução em português", pares_bi[0][0], emocao="fé", funcao="contexto bilíngue", origem="bilingual-sermon")
+                        return
+    except Exception as e:
+        print(f"[bilingue] analise ignorada: {e}")
 
     # Fallback / modo sem Gemini: detector local respeitando o modo escolhido.
     disparou_local = False
@@ -4475,6 +4692,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] Corte Seguro local: blocos de {bloco_segundos_atual:.1f}s")
+    print(f"[modo] {clip_mode_atual()} | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
@@ -4509,6 +4727,14 @@ def loop_transcricao():
         t0 = (time.time()-bloco_segundos_atual) - inicio_gravacao
         if t0 < 0: t0 = 0
         feats_audio = audio_features_misto(audio, CONFIG.get("sample_rate", 16000))
+        if worship_advanced_enabled(feats_audio):
+            adv_feats = audio_features_musicais_avancadas(audio, CONFIG.get("sample_rate", 16000))
+            if adv_feats.get("advanced"):
+                feats_audio.update(adv_feats)
+                try:
+                    feats_audio["music_score"] = int(max(feats_audio.get("music_score", 0), min(100, feats_audio.get("music_score", 0) + adv_feats.get("crescendo_score", 0)*0.18 + adv_feats.get("melody_score", 0)*0.12)))
+                except Exception:
+                    pass
         modo_clip = clip_mode_atual()
         if modo_clip in ("mixed", "worship") and feats_audio.get("kind") in ("music", "speech_with_music"):
             print(f"[classifier] modo={modo_clip} tipo={feats_audio.get('kind')} fala={feats_audio.get('speech_score')} musica={feats_audio.get('music_score')} rms={feats_audio.get('rms'):.4f}")
@@ -4644,6 +4870,7 @@ def loop_transcricao():
             intervalo_analise = max(30.0 if gemini_pronto else 15.0, intervalo_analise)
         else:
             intervalo_analise = min(intervalo_analise, 8.0) if not gemini_pronto else max(30.0, intervalo_analise)
+        intervalo_analise = ajustar_intervalo_por_culto_inteligente(intervalo_analise, feats_audio)
         base_analise = texto_contexto_ia if gemini_pronto else texto_desde_ia
         if time.time()-ultima_ia >= intervalo_analise and base_analise:
             bloco_txt = " ".join(x[1] for x in base_analise)
@@ -4727,10 +4954,16 @@ async def handler(ws):
         "gemini_tutorial_url":config_usuario.get("gemini_tutorial_url", CONFIG.get("gemini_tutorial_url", "https://ai.google.dev/gemini-api/docs/api-key")),
         "corte_seguro":config_usuario.get("corte_seguro", True),
         "agrupar_assunto":config_usuario.get("agrupar_assunto", True),
-        "duracao_corte_min":config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 15)),
-        "duracao_corte_max":config_usuario.get("duracao_corte_max", CONFIG.get("duracao_corte_max", 45)),
+        "duracao_corte_min":config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 35)),
+        "duracao_corte_max":config_usuario.get("duracao_corte_max", CONFIG.get("duracao_corte_max", 90)),
         "corte_exato_automatico":config_usuario.get("corte_exato_automatico", CONFIG.get("corte_exato_automatico", True)),
         "clip_mode":clip_mode_atual(),
+        "worship_intelligence":worship_intelligence_atual(),
+        "performance_mode":performance_mode_atual(),
+        "bilingual_context":bilingual_context_atual(),
+        "manual_moment":manual_moment_atual(),
+        "smart_cult_service_mode":bool(config_usuario.get("smart_cult_service_mode", CONFIG.get("smart_cult_service_mode", True))),
+        "worship_advanced_available":bool(FZ_LIBROSA_OK or FZ_SCIPY_OK),
         "tipo_conteudo":config_usuario.get("tipo_conteudo", CONFIG.get("tipo_conteudo", "mixed")),
         "detectar_musica_pregacao":config_usuario.get("detectar_musica_pregacao", CONFIG.get("detectar_musica_pregacao", True)),
         "musica_usar_letra_online":config_usuario.get("musica_usar_letra_online", CONFIG.get("musica_usar_letra_online", True)),
@@ -4753,6 +4986,8 @@ async def handler(ws):
                     acao = "toggle_transcricao"; req["ativa"] = True
                 elif tipo_msg in ("transcription_stop", "transcricao_stop"):
                     acao = "toggle_transcricao"; req["ativa"] = False
+                elif tipo_msg in ("settings", "set_settings", "clip_settings", "cult_service_settings"):
+                    acao = "salvar_culto_inteligente_config"
             if acao == "get_plugin_version":
                 await ws.send(json.dumps(plugin_version_payload(), ensure_ascii=False))
             elif acao == "version_status":
@@ -5058,16 +5293,53 @@ async def handler(ws):
                 print(f"[gemini] enabled={ativo} model={updates['gemini_model']} intervalo={updates['gemini_intervalo_seg']}s")
             elif acao in ("salvar_clip_mode", "salvar_modo_conteudo"):
                 modo = str(req.get("clip_mode", req.get("modo", req.get("tipo_conteudo", "mixed")))).lower().strip()
-                aliases = {"misto":"mixed","culto":"mixed","pregacao":"sermon","pregação":"sermon","louvor":"worship","musica":"worship","música":"worship"}
+                aliases = {"misto":"mixed","culto":"mixed","culto_completo":"mixed","pregacao":"sermon","pregação":"sermon","pregacao_traduzida":"bilingual_sermon","pregação traduzida":"bilingual_sermon","bilingue":"bilingual_sermon","bilíngue":"bilingual_sermon","louvor":"worship","musica":"worship","música":"worship"}
                 modo = aliases.get(modo, modo)
-                if modo not in ("mixed", "sermon", "podcast", "worship"):
+                if modo not in ("mixed", "sermon", "podcast", "worship", "bilingual_sermon"):
                     modo = "mixed"
-                tipo_legado = "musica" if modo == "worship" else ("pregacao" if modo in ("sermon", "podcast") else "mixed")
+                tipo_legado = "musica" if modo == "worship" else ("pregacao" if modo in ("sermon", "podcast", "bilingual_sermon") else "mixed")
                 updates = {"clip_mode": modo, "modo_conteudo": modo, "tipo_conteudo": tipo_legado, "detectar_musica_pregacao": modo == "mixed"}
                 config_usuario.update(updates)
                 salvar_config_usuario(updates)
                 enviar({"tipo":"clip_mode_ok", **updates})
                 print(f"[config] clip_mode={modo} tipo_legado={tipo_legado}")
+            elif acao == "salvar_culto_inteligente_config":
+                modo = str(req.get("clip_mode", req.get("modo", config_usuario.get("clip_mode", "mixed")))).lower().strip()
+                aliases = {"misto":"mixed","culto":"mixed","culto completo":"mixed","pregacao":"sermon","pregação":"sermon","pregacao_traduzida":"bilingual_sermon","pregação traduzida":"bilingual_sermon","bilingue":"bilingual_sermon","bilíngue":"bilingual_sermon","louvor":"worship","musica":"worship","música":"worship"}
+                modo = aliases.get(modo, modo)
+                if modo not in ("mixed", "sermon", "podcast", "worship", "bilingual_sermon"):
+                    modo = "mixed"
+                wi = str(req.get("worship_intelligence", req.get("inteligencia_louvor", config_usuario.get("worship_intelligence", "auto")))).lower().strip()
+                wi = {"automatica":"auto","automática":"auto","desligada":"off","off":"off","sempre":"always","avancada":"always","avançada":"always","on":"always"}.get(wi, wi)
+                if wi not in ("auto", "off", "always"):
+                    wi = "auto"
+                perf = str(req.get("performance_mode", req.get("desempenho", config_usuario.get("performance_mode", "auto")))).lower().strip()
+                perf = {"leve":"light","avancado":"advanced","avançado":"advanced","automatico":"auto","automático":"auto"}.get(perf, perf)
+                if perf not in ("auto", "light", "advanced"):
+                    perf = "auto"
+                bi = str(req.get("bilingual_context", req.get("contexto_bilingue", config_usuario.get("bilingual_context", "auto")))).lower().strip()
+                bi = {"automatico":"auto","automático":"auto","ligado":"on","ativado":"on","desligado":"off"}.get(bi, bi)
+                if bi not in ("auto", "on", "off"):
+                    bi = "auto"
+                moment = str(req.get("manual_moment", req.get("momento", config_usuario.get("manual_moment", "auto")))).lower().strip()
+                moment = {"pregacao":"sermon","pregação":"sermon","louvor":"worship","adoracao":"worship","adoração":"worship","ministracao":"ministry","ministração":"ministry","apelo":"ministry"}.get(moment, moment)
+                if moment not in ("auto", "sermon", "worship", "ministry"):
+                    moment = "auto"
+                try:
+                    mn = int(req.get("duracao_corte_min", req.get("min", config_usuario.get("duracao_corte_min", 35))))
+                    mx = int(req.get("duracao_corte_max", req.get("max", config_usuario.get("duracao_corte_max", 90))))
+                except Exception:
+                    mn, mx = 35, 90
+                mn = max(35, min(300, mn)); mx = max(mn, min(300, mx))
+                tipo_legado = "musica" if modo == "worship" else ("pregacao" if modo in ("sermon", "podcast", "bilingual_sermon") else "mixed")
+                updates = {"clip_mode": modo, "modo_conteudo": modo, "tipo_conteudo": tipo_legado, "detectar_musica_pregacao": modo == "mixed",
+                           "worship_intelligence": wi, "performance_mode": perf, "bilingual_context": bi, "manual_moment": moment,
+                           "smart_cult_service_mode": bool(req.get("smart_cult_service_mode", req.get("culto_inteligente", True))),
+                           "duracao_corte_min": mn, "duracao_corte_max": mx,
+                           "bilingual_preserve_original_translation": True}
+                config_usuario.update(updates); salvar_config_usuario(updates)
+                enviar({"tipo":"culto_inteligente_ok", **updates, "worship_advanced_available": bool(FZ_LIBROSA_OK or FZ_SCIPY_OK)})
+                print(f"[config] culto_inteligente modo={modo} louvor={wi} bilingue={bi} momento={moment} dur={mn}-{mx}s")
             elif acao == "salvar_corte_config":
                 modo = str(req.get("corte_modo", req.get("modo_corte", "standard"))).lower().strip()
                 if modo not in ("fast", "standard"):
@@ -5078,10 +5350,10 @@ async def handler(ws):
                         "limiar_corte": int(req.get("limiar_corte", 60)),
                         "cooldown_corte_seg": int(req.get("cooldown_corte_segundos", req.get("cooldown_corte_seg", 18))),
                         "intervalo_ia_seg": float(req.get("janela_analise_segundos", 8)),
-                        "duracao_corte_min": 15,
-                        "duracao_corte_max": 45,
-                        "margem_antes_corte": 8,
-                        "margem_depois_corte": 6,
+                        "duracao_corte_min": 35,
+                        "duracao_corte_max": 90,
+                        "margem_antes_corte": 20,
+                        "margem_depois_corte": 12,
                         "corte_seguro_agrupar_assunto": False,
                     }
                 else:
@@ -5091,10 +5363,10 @@ async def handler(ws):
                         "limiar_corte": max(60, int(req.get("limiar_corte", 60))),
                         "cooldown_corte_seg": max(55, int(req.get("cooldown_corte_segundos", req.get("cooldown_corte_seg", 60)))),
                         "intervalo_ia_seg": max(15.0, float(req.get("janela_analise_segundos", 30))),
-                        "duracao_corte_min": 15,
-                        "duracao_corte_max": 60,
-                        "margem_antes_corte": 12,
-                        "margem_depois_corte": 10,
+                        "duracao_corte_min": 35,
+                        "duracao_corte_max": 90,
+                        "margem_antes_corte": 22,
+                        "margem_depois_corte": 14,
                         "corte_seguro_agrupar_assunto": True,
                     }
                 config_usuario.update(updates)
@@ -5103,12 +5375,12 @@ async def handler(ws):
                 print(f"[config] modo corte={modo} limiar={updates['limiar_corte']} cooldown={updates['cooldown_corte_seg']} intervalo={updates['intervalo_ia_seg']} dur={updates['duracao_corte_min']}-{updates['duracao_corte_max']}")
             elif acao == "salvar_duracao_cortes":
                 try:
-                    mn = int(req.get("min", 15))
-                    mx = int(req.get("max", 45))
+                    mn = int(req.get("min", 35))
+                    mx = int(req.get("max", 90))
                 except Exception:
-                    mn, mx = 15, 45
-                mn = max(5, min(300, mn))
-                mx = max(5, min(300, mx))
+                    mn, mx = 35, 90
+                mn = max(35, min(300, mn))
+                mx = max(35, min(300, mx))
                 if mx < mn:
                     mx = mn
                 # Margens proporcionais para o clipe automático e cortes finais.

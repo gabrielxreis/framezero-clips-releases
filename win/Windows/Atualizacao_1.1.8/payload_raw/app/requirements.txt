@@ -10,3 +10,10 @@ openai>=1.40.0
 requests>=2.31.0
 scipy>=1.13.0
 soundcard>=0.4.3
+
+# Opcional para acelerar downloads do Hugging Face. Se falhar, o FrameZero continua funcionando.
+# huggingface_hub[hf_xet]>=0.23.0
+# hf_xet>=1.0.0
+# Opcional avançado para Worship Intelligence. Não é obrigatório no modo leve/automático.
+# librosa>=0.10.2
+# scikit-learn>=1.4.0
