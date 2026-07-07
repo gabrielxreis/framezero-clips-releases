@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.109 Singing-Aware Worship.
+FrameZero Clips 1.1.8 - v1.0.110 Editor Timeline.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -4777,6 +4777,266 @@ def dividir_linhas_continuas(txt, max_chars=360):
                 final.append(buf.strip())
     return [x for x in final if len(x.strip()) >= 8]
 
+
+# ----------------------------- v1.0.110 EDITOR TIMELINE -----------------------------
+FZ110_EDITOR_EXPORT_LAST = 0
+
+def fz110_safe_name(s, max_len=80):
+    try:
+        s = str(s or "FrameZero").strip()
+        s = re.sub(r"[\\/:*?\"<>|]+", "-", s)
+        s = re.sub(r"\s+", " ", s).strip(" .-_")
+        return (s[:max_len].strip() or "FrameZero")
+    except Exception:
+        return "FrameZero"
+
+def fz110_tc(seconds, fps=30):
+    try:
+        fps = int(fps or 30)
+        total_frames = max(0, int(round(float(seconds or 0) * fps)))
+        hh = total_frames // (fps * 3600)
+        total_frames %= fps * 3600
+        mm = total_frames // (fps * 60)
+        total_frames %= fps * 60
+        ss = total_frames // fps
+        ff = total_frames % fps
+        return f"{hh:02d}:{mm:02d}:{ss:02d}:{ff:02d}"
+    except Exception:
+        return "00:00:00:00"
+
+def fz110_categoria_corte(corte):
+    try:
+        blob = " ".join(str(corte.get(k, "") or "") for k in ("titulo", "texto", "emocao", "funcao", "origem", "razao")).lower()
+        blob_norm = _norm(blob) if "_norm" in globals() else blob
+        if any(x in blob_norm for x in ["louvor", "adoracao", "adoração", "music", "worship", "canto", "melodia", "congregacional"]):
+            return "louvor"
+        if any(x in blob_norm for x in ["apelo", "salvacao", "salvação", "aceitar jesus", "chamado", "altar"]):
+            return "apelo"
+        if any(x in blob_norm for x in ["oracao", "oração", "orar", "intercess", "clamor"]):
+            return "oracao"
+        if any(x in blob_norm for x in ["ministracao", "ministração", "fundo musical", "profet", "imposicao", "imposição"]):
+            return "ministracao"
+        if any(x in blob_norm for x in ["aviso", "agenda", "inscricao", "inscrição", "oferta", "dizimo", "dízimo"]):
+            return "avisos"
+        if any(x in blob_norm for x in ["pregacao", "pregação", "sermao", "sermão", "biblia", "bíblia", "versiculo", "versículo"]):
+            return "pregacao"
+        if int(corte.get("score", 0) or 0) >= 85:
+            return "frase_forte"
+    except Exception:
+        pass
+    return "pregacao"
+
+def fz110_categoria_label(cat):
+    return {"louvor":"Louvor","pregacao":"Pregação","apelo":"Apelo","oracao":"Oração","ministracao":"Ministração","frase_forte":"Frase forte","avisos":"Avisos"}.get(cat,"Momento")
+
+def fz110_categoria_cor(cat):
+    return {"louvor":"Blue","pregacao":"Yellow","apelo":"Red","oracao":"Purple","ministracao":"Orange","frase_forte":"Green","avisos":"Gray"}.get(cat,"Blue")
+
+def fz110_margens_categoria(cat):
+    try:
+        tabela = config_usuario.get("editor_timeline_margens", CONFIG.get("editor_timeline_margens", {}))
+        if isinstance(tabela, dict) and isinstance(tabela.get(cat), dict):
+            return int(tabela[cat].get("antes", 8)), int(tabela[cat].get("depois", 10))
+    except Exception:
+        pass
+    defaults = {"louvor":(12,18),"pregacao":(8,10),"apelo":(15,20),"oracao":(12,15),"ministracao":(15,20),"frase_forte":(8,10),"avisos":(5,6)}
+    return defaults.get(cat, (8, 10))
+
+def fz110_obs_recording_dirs():
+    dirs = []
+    try:
+        home = Path.home()
+        dirs += [home / "Movies", home / "Videos", home / "Desktop", home / "Documents"]
+        if platform.system().lower().startswith("win"):
+            dirs += [home / "OneDrive" / "Videos", home / "Videos" / "OBS", home / "Documents" / "OBS"]
+        obs_roots = []
+        if platform.system().lower() == "darwin":
+            obs_roots.append(home / "Library/Application Support/obs-studio/basic/profiles")
+        elif platform.system().lower().startswith("win"):
+            appdata = os.environ.get("APPDATA")
+            if appdata:
+                obs_roots.append(Path(appdata) / "obs-studio/basic/profiles")
+        for root in obs_roots:
+            if root.exists():
+                for ini in root.glob("*/basic.ini"):
+                    try:
+                        text = ini.read_text(encoding="utf-8", errors="ignore")
+                        for m in re.finditer(r"(?im)^\s*(RecFilePath|FilePath)\s*=\s*(.+?)\s*$", text):
+                            dirs.append(Path(os.path.expanduser(m.group(2).strip().strip('"'))))
+                    except Exception:
+                        pass
+        for key in ["gravacao_original_path", "obs_recording_path", "recording_path", "pasta_gravacoes_obs"]:
+            try:
+                val = config_usuario.get(key) or CONFIG.get(key)
+            except Exception:
+                val = None
+            if val:
+                p = Path(os.path.expanduser(str(val).strip().strip('"')))
+                dirs.append(p if p.suffix == "" else p.parent)
+    except Exception:
+        pass
+    seen, out = set(), []
+    for d in dirs:
+        try:
+            d = Path(d).expanduser()
+            if d.exists() and d.is_dir() and str(d) not in seen:
+                seen.add(str(d)); out.append(d)
+        except Exception:
+            pass
+    return out
+
+def fz110_detectar_gravacao_original():
+    try:
+        for key in ["gravacao_original_path", "obs_recording_file", "recording_file"]:
+            val = config_usuario.get(key) if isinstance(config_usuario, dict) else None
+            if val and Path(str(val)).expanduser().exists():
+                return str(Path(str(val)).expanduser())
+    except Exception:
+        pass
+    exts = {".mp4", ".mov", ".mkv", ".m4v"}
+    candidatos = []
+    now = time.time()
+    for d in fz110_obs_recording_dirs():
+        try:
+            for p in d.glob("**/*"):
+                try:
+                    if not p.is_file() or p.suffix.lower() not in exts:
+                        continue
+                    sp = str(p).lower()
+                    if "framezero" in sp and ("corte" in sp or "clips" in sp):
+                        continue
+                    st = p.stat()
+                    if st.st_size < 5 * 1024 * 1024:
+                        continue
+                    if now - st.st_mtime > 18 * 3600:
+                        continue
+                    candidatos.append((st.st_mtime, st.st_size, p))
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    if not candidatos:
+        return ""
+    candidatos.sort(key=lambda x: (x[0], x[1]), reverse=True)
+    return str(candidatos[0][2])
+
+def fz110_export_root(original_path=""):
+    try:
+        if original_path:
+            return Path(original_path).expanduser().parent / "TIMELINE_EDITOR"
+        return Path.home() / "Movies" / "FrameZero_Timeline_Editor"
+    except Exception:
+        return Path(".") / "TIMELINE_EDITOR"
+
+def fz110_eventos_timeline(best_only=False):
+    eventos = []
+    try:
+        items = list(cortes)
+    except Exception:
+        items = []
+    for idx, c in enumerate(items):
+        try:
+            score = int(c.get("score", 0) or 0)
+            if best_only and score < int(config_usuario.get("editor_timeline_best_score", CONFIG.get("editor_timeline_best_score", 80))):
+                continue
+            cat = fz110_categoria_corte(c)
+            antes, depois = fz110_margens_categoria(cat)
+            pico = float(c.get("tempo", 0) or 0)
+            ini = c.get("inicio_exato")
+            fim = c.get("fim_exato")
+            if ini is None or fim is None:
+                ini = max(0.0, pico - float(antes))
+                fim = max(float(ini) + 2.0, pico + float(depois))
+            ini = max(0.0, float(ini or 0))
+            fim = max(ini + 1.0, float(fim or (ini + 10)))
+            titulo = fz110_safe_name(c.get("titulo") or fz110_categoria_label(cat), 70)
+            eventos.append({"idx":idx+1,"cat":cat,"label":fz110_categoria_label(cat),"color":fz110_categoria_cor(cat),"titulo":titulo,"inicio":ini,"fim":fim,"dur":max(1.0,fim-ini),"score":score,"razao":str(c.get("razao","") or "")})
+        except Exception:
+            pass
+    eventos.sort(key=lambda e: e["inicio"])
+    return eventos
+
+def fz110_write_edl(path, eventos, original_path="", title="FRAMEZERO_TIMELINE"):
+    try:
+        fps = int(config_usuario.get("editor_timeline_fps", CONFIG.get("editor_timeline_fps", 30)))
+    except Exception:
+        fps = 30
+    reel = "AX"
+    clip_name = Path(original_path).name if original_path else "GRAVACAO_ORIGINAL"
+    lines = [f"TITLE: {title}", "FCM: NON-DROP FRAME", ""]
+    dst = 0.0
+    for n, ev in enumerate(eventos, 1):
+        src_in, src_out = ev["inicio"], ev["fim"]
+        dst_in, dst_out = dst, dst + ev["dur"]
+        lines.append(f"{n:03d}  {reel:<8} V     C        {fz110_tc(src_in,fps)} {fz110_tc(src_out,fps)} {fz110_tc(dst_in,fps)} {fz110_tc(dst_out,fps)}")
+        lines.append(f"* FROM CLIP NAME: {clip_name}")
+        lines.append(f"* COMMENT: {ev['label']} | {ev['titulo']} | Score {ev['score']} | Color {ev['color']}")
+        lines.append("")
+        dst = dst_out
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+def fz110_xml_escape(s):
+    return str(s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+
+def fz110_write_fcpxml(path, eventos, original_path="", title="FRAMEZERO_TIMELINE"):
+    clip_name = Path(original_path).name if original_path else "GRAVACAO_ORIGINAL"
+    src = Path(original_path).expanduser().resolve().as_uri() if original_path else "file:///GRAVACAO_ORIGINAL.mp4"
+    total = sum(float(e.get("dur", 1)) for e in eventos) or 1
+    out = []
+    out.append('<?xml version="1.0" encoding="UTF-8"?>')
+    out.append('<!DOCTYPE fcpxml>')
+    out.append('<fcpxml version="1.10">')
+    out.append('  <resources>')
+    out.append('    <format id="r1" name="FFVideoFormat1080p30" frameDuration="100/3000s" width="1920" height="1080"/>')
+    out.append(f'    <asset id="r2" name="{fz110_xml_escape(clip_name)}" src="{fz110_xml_escape(src)}" start="0s" duration="86400s" hasVideo="1" hasAudio="1"/>')
+    out.append('  </resources>')
+    out.append('  <library><event name="FrameZero"><project name="' + fz110_xml_escape(title) + '"><sequence format="r1" duration="' + f"{total:.3f}" + 's" tcStart="0s" tcFormat="NDF"><spine>')
+    dst = 0.0
+    for ev in eventos:
+        name = f"{ev['label']} - {ev['titulo']} - Score {ev['score']}"
+        out.append(f'    <asset-clip name="{fz110_xml_escape(name)}" ref="r2" offset="{dst:.3f}s" start="{ev["inicio"]:.3f}s" duration="{ev["dur"]:.3f}s">')
+        out.append(f'      <marker start="0s" value="{fz110_xml_escape(ev["color"] + " - " + name)}" completed="0"/>')
+        out.append('    </asset-clip>')
+        dst += float(ev.get("dur", 1))
+    out.append('  </spine></sequence></project></event></library>')
+    out.append('</fcpxml>')
+    path.write_text("\n".join(out), encoding="utf-8")
+
+def fz110_export_editor_timeline(motivo="auto"):
+    global FZ110_EDITOR_EXPORT_LAST
+    try:
+        if not bool(config_usuario.get("editor_timeline_export_enabled", CONFIG.get("editor_timeline_export_enabled", True))):
+            return None
+        now = time.time()
+        if motivo == "auto" and now - float(FZ110_EDITOR_EXPORT_LAST or 0) < 12:
+            return None
+        eventos_all = fz110_eventos_timeline(best_only=False)
+        eventos_best = fz110_eventos_timeline(best_only=True)
+        if not eventos_all:
+            return None
+        original = fz110_detectar_gravacao_original()
+        root = fz110_export_root(original)
+        root.mkdir(parents=True, exist_ok=True)
+        stem = fz110_safe_name(Path(original).stem if original else time.strftime("FrameZero_%Y-%m-%d_%H-%M-%S"), 90)
+        fz110_write_edl(root / f"{stem}_FRAMEZERO_TIMELINE.edl", eventos_all, original, "FRAMEZERO_TIMELINE")
+        fz110_write_edl(root / f"{stem}_FRAMEZERO_BEST_CUTS.edl", eventos_best or eventos_all, original, "FRAMEZERO_BEST_CUTS")
+        fz110_write_fcpxml(root / f"{stem}_FRAMEZERO_TIMELINE.fcpxml", eventos_all, original, "FRAMEZERO_TIMELINE")
+        fz110_write_fcpxml(root / f"{stem}_FRAMEZERO_BEST_CUTS.fcpxml", eventos_best or eventos_all, original, "FRAMEZERO_BEST_CUTS")
+        meta = {"version":"1.0.110","original_recording":original,"export_dir":str(root),"events":eventos_all,"best_events":eventos_best,"margins":{"louvor":[12,18],"pregacao":[8,10],"apelo":[15,20],"oracao":[12,15],"ministracao":[15,20]}}
+        (root / f"{stem}_FRAMEZERO_EDITOR_INFO.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        FZ110_EDITOR_EXPORT_LAST = now
+        print(f"[editor-timeline] exportado: {root}")
+        try:
+            enviar({"tipo":"editor_timeline_export","ok":True,"dir":str(root),"original":original,"eventos":len(eventos_all),"best":len(eventos_best)})
+        except Exception:
+            pass
+        return str(root)
+    except Exception as e:
+        print(f"[editor-timeline] falhou: {e}")
+        return None
+# ----------------------------- /v1.0.110 EDITOR TIMELINE -----------------------------
+
+
 def registrar_corte(texto, score, titulo, razao, t, emocao="", funcao="", origem="local"):
     nivel = "forte" if int(score) >= 90 else ("possivel" if int(score) >= 80 else "baixo")
     corte = {"tipo":"corte","texto":texto,"score":score,"titulo":titulo,
@@ -5073,7 +5333,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.109 singing-aware-worship | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.110 editor-timeline | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 
@@ -5475,6 +5735,9 @@ async def handler(ws):
             elif acao == "clipar_agora":
                 titulo = (req.get("titulo") or "momento-manual").strip()
                 salvar_clipe(titulo=titulo, motivo="manual")
+            elif acao in ("exportar_timeline_editor", "editor_timeline_export", "export_editor_timeline"):
+                export_dir = fz110_export_editor_timeline(motivo="manual")
+                await ws.send(json.dumps({"tipo":"editor_timeline_export_result","ok":bool(export_dir),"dir":export_dir}, ensure_ascii=False))
             elif acao == "salvar_senha_obs":
                 s = (req.get("senha") or "").strip()
                 p = req.get("porta")

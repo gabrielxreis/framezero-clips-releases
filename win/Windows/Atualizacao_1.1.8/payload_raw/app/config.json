@@ -206,8 +206,8 @@
   "music_transcription_status_interval": 8,
   "music_show_instrumental_in_transcription": true,
   "music_show_singing_status_when_asr_invalid": true,
-  "installer_version": "1.0.109",
-  "online_installer_version": "1.0.109",
+  "installer_version": "1.0.110",
+  "online_installer_version": "1.0.110",
   "worship_cooldown_seg": 55,
   "worship_scoring_version": "1.0.109",
   "music_score_emotional": true,
@@ -215,5 +215,47 @@
   "block_external_video_cuts": true,
   "v107_syntax_fix": true,
   "singing_aware_worship": true,
-  "louvor_title_in_transcription": true
+  "louvor_title_in_transcription": true,
+  "editor_timeline_export_enabled": true,
+  "editor_timeline_fps": 30,
+  "editor_timeline_best_score": 80,
+  "editor_timeline_margens": {
+    "louvor": {
+      "antes": 12,
+      "depois": 18
+    },
+    "pregacao": {
+      "antes": 8,
+      "depois": 10
+    },
+    "apelo": {
+      "antes": 15,
+      "depois": 20
+    },
+    "oracao": {
+      "antes": 12,
+      "depois": 15
+    },
+    "ministracao": {
+      "antes": 15,
+      "depois": 20
+    },
+    "frase_forte": {
+      "antes": 8,
+      "depois": 10
+    },
+    "avisos": {
+      "antes": 5,
+      "depois": 6
+    }
+  },
+  "editor_timeline_marker_colors": {
+    "louvor": "Blue",
+    "pregacao": "Yellow",
+    "apelo": "Red",
+    "oracao": "Purple",
+    "ministracao": "Orange",
+    "frase_forte": "Green",
+    "avisos": "Gray"
+  }
 }

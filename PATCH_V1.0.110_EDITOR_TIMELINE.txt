@@ -1,0 +1,7 @@
+FrameZero Clips v1.0.110 — Editor Timeline
+
+- Detecção da gravação original do OBS.
+- Exportação EDL/FCPXML fora da pasta de cortes.
+- Markers coloridos por categoria.
+- Margens por tipo: Louvor 12/18, Pregação 8/10, Apelo 15/20.
+- Mac e Windows atualizados. Installers congelados não foram modificados.
