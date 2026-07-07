@@ -1,1 +1,0 @@
-v1.0.112 remove timeline/EDL/FCPXML do Core e volta para a base estável v1.0.109, mantendo versão 1.0.112 para update.

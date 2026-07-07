@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.112 Singing-Aware Worship.
+FrameZero Clips 1.1.8 - v1.0.109 Singing-Aware Worship.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -1237,7 +1237,7 @@ music_audio_invalidos = 0
 ultima_linha_musical_status = 0.0
 
 
-# ----------------------------- v1.0.112 SINGING-AWARE WORSHIP -----------------------------
+# ----------------------------- v1.0.109 SINGING-AWARE WORSHIP -----------------------------
 # Detecta nome/tipo do louvor pela cantoria, sem depender de base de letras ou idioma.
 # Estratégia: pegar frases recentes curtas/repetidas, limpar loop de ASR e escolher a frase mais provável.
 
@@ -1372,7 +1372,7 @@ def fz109_titulo_louvor_por_cantoria(now_t=None, kind="speech_with_music", fallb
     if kind == "speech_with_music":
         return "Louvor - Canto congregacional"
     return fallback or "Louvor - Momento musical"
-# ----------------------------- /v1.0.112 SINGING-AWARE WORSHIP -----------------------------
+# ----------------------------- /v1.0.109 SINGING-AWARE WORSHIP -----------------------------
 
 def emitir_transcricao_musical_detectada(t, kind, feats=None, motivo="music-status"):
     """Mostra no painel/terminal quando o bloco é louvor/melodia, mesmo sem letra confiável.
@@ -5073,7 +5073,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.112 singing-aware-worship | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.109 singing-aware-worship | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 

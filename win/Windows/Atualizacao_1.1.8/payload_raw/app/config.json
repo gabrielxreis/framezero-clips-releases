@@ -206,8 +206,8 @@
   "music_transcription_status_interval": 8,
   "music_show_instrumental_in_transcription": true,
   "music_show_singing_status_when_asr_invalid": true,
-  "installer_version": "1.0.112",
-  "online_installer_version": "1.0.112",
+  "installer_version": "1.0.109",
+  "online_installer_version": "1.0.109",
   "worship_cooldown_seg": 55,
   "worship_scoring_version": "1.0.109",
   "music_score_emotional": true,
@@ -215,9 +215,5 @@
   "block_external_video_cuts": true,
   "v107_syntax_fix": true,
   "singing_aware_worship": true,
-  "louvor_title_in_transcription": true,
-  "editor_timeline_enabled": false,
-  "editor_timeline_export_enabled": false,
-  "editor_timeline_export_on_record_stop": false,
-  "editor_timeline_export_during_recording": false
+  "louvor_title_in_transcription": true
 }
