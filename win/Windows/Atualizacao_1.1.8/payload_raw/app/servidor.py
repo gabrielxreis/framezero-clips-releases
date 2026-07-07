@@ -1064,10 +1064,50 @@ ultimo_corte_musical_audio = 0.0
 music_audio_segment_start = None
 music_audio_segment_seconds = 0.0
 music_audio_invalidos = 0
+ultima_linha_musical_status = 0.0
+
+def emitir_transcricao_musical_detectada(t, kind, feats=None, motivo="music-status"):
+    """Mostra no painel/terminal quando o bloco é louvor/melodia, mesmo sem letra confiável.
+    Não inventa letra: se o ASR não entendeu a parte cantada, exibimos status musical seguro.
+    Quando o Whisper conseguir letra válida, o fluxo normal mostra a transcrição cantada.
+    """
+    global ultima_linha_musical_status, linhas
+    try:
+        if not bool(config_usuario.get("music_emit_transcription_status", CONFIG.get("music_emit_transcription_status", True))):
+            return
+        now_t = float(t or 0)
+        min_gap = float(config_usuario.get("music_transcription_status_interval", CONFIG.get("music_transcription_status_interval", 8)))
+        if ultima_linha_musical_status and now_t - float(ultima_linha_musical_status) < min_gap:
+            return
+        if kind == "music":
+            texto = "[louvor instrumental / melodia detectada]"
+        elif kind == "speech_with_music":
+            texto = "[louvor com voz detectada — aguardando letra confiável]"
+        else:
+            texto = "[áudio musical detectado]"
+        linha = {
+            "tipo": "linha",
+            "texto": texto,
+            "inicio": round(max(0.0, now_t - 1.0), 2),
+            "fim": round(now_t, 2),
+            "timestamp": fmt(now_t),
+            "volume_rms": round(float((feats or {}).get("rms", 0.0) or 0.0), 4),
+            "pico_voz": False,
+            "transcricao_origem": "music-detector",
+            "language_profile": perfil_id_atual(),
+            "music_status": True,
+            "motivo": motivo
+        }
+        linhas.append(linha)
+        enviar(linha)
+        ultima_linha_musical_status = now_t
+        print(f"[{linha['timestamp']}] {texto}")
+    except Exception as e:
+        print(f"[music] falha ao enviar status de transcricao musical: {e}")
 
 def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio"):
     """Gera candidato de corte para louvor/ministração mesmo quando o Whisper não devolve texto.
-    Hotfix v1.0.105: força candidato de áudio quando o ASR trava em speech_with_music.
+    Hotfix v1.0.106: força candidato de áudio quando o ASR trava em speech_with_music.
     Não cria SRT falso. Só usa o áudio para clipar momento musical/emocional.
     """
     global ultimo_corte_musical_audio, music_audio_segment_start, music_audio_segment_seconds, music_audio_invalidos
@@ -1093,6 +1133,8 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
     music_audio_segment_seconds += bloco
     if any(x in str(motivo).lower() for x in ("whisper", "asr", "invalido", "falhou")):
         music_audio_invalidos += 1
+
+    emitir_transcricao_musical_detectada(now_t, kind, feats, motivo=motivo)
 
     dur_min = float(config_usuario.get("duracao_corte_min", CONFIG.get("duracao_corte_min", 35)))
     dur_min = max(25.0, min(45.0, dur_min))

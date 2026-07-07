@@ -1,0 +1,10 @@
+FrameZero Clips v1.0.106 - Mac Worship Intelligence
+
+- Ativa no Mac a lógica Worship Intelligence/Force Audio já validada no Windows.
+- Mantém launcher/instalador Mac, OBS, BlackHole e plugins sem reescrever.
+- Atualiza apenas o pacote mac/FrameZero_Clips_1.1.8_Mac.zip com servidor.py/config.
+- Cortes finais continuam 35s a 90s.
+- Louvor/melodia aparece na transcrição como status seguro quando não há letra confiável.
+- Parte cantada com ASR válido continua aparecendo como texto transcrito normal.
+- Não inventa letra quando Whisper/MLX retorna texto inválido.
+- VPS permanece desativada no fluxo ao vivo.

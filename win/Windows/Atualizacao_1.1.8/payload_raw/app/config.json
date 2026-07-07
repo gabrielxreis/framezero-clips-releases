@@ -200,6 +200,10 @@
   "music_audio_hotfix_version": "1.0.104",
   "descricao_v104": "Worship ASR Hotfix: speech_with_music nao fica preso aguardando Whisper; depois de contexto suficiente gera candidato por energia/voz sem legenda falsa.",
   "versao_core": "1.0.105",
-  "version": "1.0.105",
-  "music_force_min_seconds": 30
+  "version": "1.0.106",
+  "music_force_min_seconds": 30,
+  "music_emit_transcription_status": true,
+  "music_transcription_status_interval": 8,
+  "music_show_instrumental_in_transcription": true,
+  "music_show_singing_status_when_asr_invalid": true
 }
