@@ -1,5 +1,5 @@
 """
-FrameZero Clips 1.1.8 - v1.0.108 Worship Scoring & Song Naming.
+FrameZero Clips 1.1.8 - v1.0.109 Singing-Aware Worship.
 
 Recursos:
   1. Transcreve localmente; VPS ASR desativada no fluxo ao vivo.
@@ -1236,6 +1236,144 @@ music_audio_segment_seconds = 0.0
 music_audio_invalidos = 0
 ultima_linha_musical_status = 0.0
 
+
+# ----------------------------- v1.0.109 SINGING-AWARE WORSHIP -----------------------------
+# Detecta nome/tipo do louvor pela cantoria, sem depender de base de letras ou idioma.
+# Estratégia: pegar frases recentes curtas/repetidas, limpar loop de ASR e escolher a frase mais provável.
+
+def fz109_limpar_loop_cantado(texto):
+    try:
+        t = re.sub(r"\s+", " ", str(texto or "")).strip()
+        if not t:
+            return ""
+        # Remove loops absurdos do ASR tipo "o céu, o céu, o céu..."
+        partes = [p.strip(" .,!?;:-–—") for p in re.split(r"[,;|/]+", t) if p.strip(" .,!?;:-–—")]
+        if len(partes) >= 8:
+            freq = {}
+            for p in partes:
+                np = _norm(p)
+                if 1 <= len(np.split()) <= 4:
+                    freq[np] = freq.get(np, 0) + 1
+            if freq and max(freq.values()) >= 6:
+                ruins = {k for k, v in freq.items() if v >= 6}
+                partes = [p for p in partes if _norm(p) not in ruins]
+                t = " ".join(partes).strip()
+        # Remove repetição consecutiva de palavra/frase curta.
+        palavras = t.split()
+        out = []
+        last = ""
+        repeats = 0
+        for w in palavras:
+            nw = _norm(w.strip(".,!?;:"))
+            if nw and nw == last:
+                repeats += 1
+                if repeats <= 2:
+                    out.append(w)
+            else:
+                repeats = 0
+                out.append(w)
+                last = nw
+        return re.sub(r"\s+", " ", " ".join(out)).strip()
+    except Exception:
+        return str(texto or "").strip()
+
+def fz109_texto_recente_para_louvor(now_t=None, janela=110):
+    try:
+        end = float(now_t or 0)
+        partes = []
+        for item in list(linhas)[-40:]:
+            if not isinstance(item, dict):
+                continue
+            if item.get("music_status"):
+                continue
+            tx = str(item.get("texto") or "").strip()
+            if not tx or tx.startswith("["):
+                continue
+            if "louvor" in tx.lower() and "detectad" in tx.lower():
+                continue
+            try:
+                tt = float(item.get("fim", item.get("inicio", item.get("tempo", 0))) or 0)
+            except Exception:
+                tt = 0
+            if end and tt and end - tt > float(janela):
+                continue
+            try:
+                if fz107_parece_video_externo(tx):
+                    continue
+            except Exception:
+                pass
+            tx = fz109_limpar_loop_cantado(tx)
+            if tx:
+                partes.append(tx)
+        return re.sub(r"\s+", " ", " ".join(partes[-10:])).strip()
+    except Exception:
+        return ""
+
+def fz109_frase_cantada_provavel(texto):
+    try:
+        t = fz109_limpar_loop_cantado(texto)
+        if not t:
+            return "", 0
+        normal = _norm(t)
+        # Se existir o detector da v107, usa primeiro.
+        try:
+            nome, conf = fz107_nome_musica_por_letra(t)
+            if nome and conf >= 60:
+                return nome, conf
+        except Exception:
+            pass
+
+        # Divide em frases curtas. Funciona em qualquer idioma porque olha estrutura/repetição.
+        raw_parts = re.split(r"(?<=[.!?…])\s+|[,;\n]+", t)
+        candidatos = []
+        for p in raw_parts:
+            p = re.sub(r"\s+", " ", p).strip(" .,!?:;–—-")
+            if not p:
+                continue
+            words = p.split()
+            if not (2 <= len(words) <= 10):
+                continue
+            np = _norm(p)
+            if len(np) < 6:
+                continue
+            freq = normal.count(np)
+            # Preferir frases curtas, repetidas ou com vocabulário espiritual se existir.
+            spiritual = 0
+            for termo in ["deus","senhor","jesus","santo","aleluia","gloria","glória","digno","amor","alma","coracao","coração","lord","god","jesus","holy","hallelujah","glory","love","soul"]:
+                if termo in np:
+                    spiritual += 1
+            score = 40 + min(24, freq * 8) + min(24, spiritual * 8)
+            if 3 <= len(words) <= 7:
+                score += 8
+            candidatos.append((score, p))
+        if candidatos:
+            candidatos.sort(key=lambda x: x[0], reverse=True)
+            frase = candidatos[0][1]
+            frase = " ".join(w[:1].upper() + w[1:] for w in frase.split())
+            return frase[:58], min(88, candidatos[0][0])
+
+        words = t.split()
+        if 3 <= len(words) <= 9:
+            frase = " ".join(w[:1].upper() + w[1:] for w in words)
+            return frase[:58], 58
+    except Exception:
+        pass
+    return "", 0
+
+def fz109_titulo_louvor_por_cantoria(now_t=None, kind="speech_with_music", fallback=""):
+    texto = fz109_texto_recente_para_louvor(now_t)
+    frase, conf = fz109_frase_cantada_provavel(texto)
+    if frase and conf >= 70:
+        return "Louvor - " + frase
+    if frase and conf >= 55:
+        return "Louvor - Possível " + frase
+    if kind == "music":
+        return "Louvor - Melodia / interlúdio"
+    if kind == "speech_with_music":
+        return "Louvor - Canto congregacional"
+    return fallback or "Louvor - Momento musical"
+# ----------------------------- /v1.0.109 SINGING-AWARE WORSHIP -----------------------------
+
 def emitir_transcricao_musical_detectada(t, kind, feats=None, motivo="music-status"):
     """Mostra no painel/terminal quando o bloco é louvor/melodia, mesmo sem letra confiável.
     Não inventa letra: se o ASR não entendeu a parte cantada, exibimos status musical seguro.
@@ -1249,12 +1387,13 @@ def emitir_transcricao_musical_detectada(t, kind, feats=None, motivo="music-stat
         min_gap = float(config_usuario.get("music_transcription_status_interval", CONFIG.get("music_transcription_status_interval", 8)))
         if ultima_linha_musical_status and now_t - float(ultima_linha_musical_status) < min_gap:
             return
+        titulo_louvor = fz109_titulo_louvor_por_cantoria(now_t, kind=kind, fallback="")
         if kind == "music":
-            texto = "[louvor instrumental / melodia detectada]"
+            texto = f"{titulo_louvor} — melodia detectada"
         elif kind == "speech_with_music":
-            texto = "[louvor com voz detectada — aguardando letra confiável]"
+            texto = f"{titulo_louvor} — voz detectada, aguardando letra confiável"
         else:
-            texto = "[áudio musical detectado]"
+            texto = f"{titulo_louvor} — áudio musical detectado"
         linha = {
             "tipo": "linha",
             "texto": texto,
@@ -1347,9 +1486,11 @@ def registrar_corte_musical_audio(t0, bloco_segundos, feats, motivo="music-audio
     if feats.get("dynamic",0) > 0.85:
         titulo = "Louvor - Clímax de adoração" if modo == "worship" else "Culto - Virada emocional"
 
-    texto = "Trecho detectado pelo áudio em modo louvor/fala com música. Sem legenda forçada para evitar SRT errado."
+    texto_recente_louvor = fz109_texto_recente_para_louvor(now_t)
+    titulo = fz109_titulo_louvor_por_cantoria(now_t, kind=kind, fallback=titulo)
+    texto = texto_recente_louvor or "Trecho detectado pelo áudio em modo louvor/fala com música. Sem legenda forçada para evitar SRT errado."
     razao = f"{motivo}: energia={feats.get('energy_score',0)} musica={feats.get('music_score',0)} fala={feats.get('speech_score',0)} dinamica={round(float(feats.get('dynamic',0)),2)} invalidos={music_audio_invalidos} forced={forced}"
-    registrar_corte(texto, min(100, max(score, limiar)), titulo, razao, now_t, emocao="adoração", funcao="clímax musical", origem="mixed-worship-audio")
+    registrar_corte(texto, min(96, max(score, limiar)), titulo, razao, now_t, emocao="adoração", funcao="clímax musical", origem="mixed-worship-audio")
     ultimo_corte_musical_audio = now_t
     print(f"[music] corte candidato por áudio: score={score} tipo={kind} dur={music_audio_segment_seconds:.0f}s forced={forced} t={fmt(now_t)}")
 
@@ -4932,7 +5073,7 @@ def loop_transcricao():
     else:
         bloco_segundos_atual = float(config_usuario.get("bloco_segundos_corte_seguro", config_usuario.get("bloco_segundos", 15.0)))
         print(f"[padrao] janela interna de analise: blocos de {bloco_segundos_atual:.1f}s | corte final 35-90s")
-    print(f"[modo] {clip_mode_atual()} | v1.0.108 worship-scoring-fix | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
+    print(f"[modo] {clip_mode_atual()} | v1.0.109 singing-aware-worship | corte={config_usuario.get('duracao_corte_min', CONFIG.get('duracao_corte_min'))}-{config_usuario.get('duracao_corte_max', CONFIG.get('duracao_corte_max'))}s | louvor={worship_intelligence_atual()} | bilingue={bilingual_context_atual()} | VPS desativada")
     amostras = int(CONFIG["sample_rate"]*bloco_segundos_atual)
     buffer = np.zeros((0,CONFIG["canais"]),dtype=np.float32)
 

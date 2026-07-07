@@ -1,0 +1,14 @@
+FrameZero Clips v1.0.109 — Singing-Aware Worship
+
+Objetivo:
+- Melhorar o nome exibido na transcrição quando é louvor/cantoria.
+- Não depender de uma base por idioma.
+- Usar sinais universais de canto: repetição, voz com música, melodia, dinâmica, frase curta e trecho recorrente.
+- Mostrar algo mais útil do que [louvor com voz detectada...]:
+  Louvor - Possível <frase/refrão>
+  Louvor - Canto congregacional
+  Louvor - Melodia / interlúdio
+- Usar o mesmo título provável no nome da pasta do corte por áudio.
+- Corrigir, se existir, o erro EMOCOES_LOCAL duplicado da v1.0.107.
+- Sem dependências novas.
+- VPS continua desativada.

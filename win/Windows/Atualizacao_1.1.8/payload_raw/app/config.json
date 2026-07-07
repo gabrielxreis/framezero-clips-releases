@@ -206,12 +206,14 @@
   "music_transcription_status_interval": 8,
   "music_show_instrumental_in_transcription": true,
   "music_show_singing_status_when_asr_invalid": true,
-  "installer_version": "1.0.108",
-  "online_installer_version": "1.0.108",
+  "installer_version": "1.0.109",
+  "online_installer_version": "1.0.109",
   "worship_cooldown_seg": 55,
-  "worship_scoring_version": "1.0.108",
+  "worship_scoring_version": "1.0.109",
   "music_score_emotional": true,
   "song_naming_enabled": true,
   "block_external_video_cuts": true,
-  "v107_syntax_fix": true
+  "v107_syntax_fix": true,
+  "singing_aware_worship": true,
+  "louvor_title_in_transcription": true
 }
