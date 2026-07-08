@@ -5,7 +5,7 @@
   "release_name": "FrameZero Clips v1.1.9 - Anti-Spam Culto",
   "release_channel": "stable",
   "force_update": false,
-  "message": "Hotfix: reduz spam de cortes em culto/louvor, trava speech_with_music e oculta SoundCardRuntimeWarning.",
+  "message": "Hotfix: reduz spam de cortes em culto/louvor, trava speech_with_music e corrige cortes em excesso.",
   "windows_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/windows/FrameZero_Clips_1.1.9_Windows.zip",
   "mac_url": "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/mac/FrameZero_Clips_1.1.8_Mac.zip",
   "online_installer_version": "1.0.111",
@@ -64,8 +64,8 @@
   "release_notes": "Anti-Spam Culto: nunca corta abaixo de 65; speech_with_music não vira 100 automático; corte por áudio não dispara quando há fala/transcrição válida; limite recomendado 20-35 cortes em culto de 2h.",
   "mac_zip": "mac/FrameZero_Clips_1.1.8_Mac.zip",
   "windows_zip": "windows/FrameZero_Clips_1.1.9_Windows.zip",
-  "version_label": "1.0.111",
-  "version_name": "v1.0.111 Performance Lite",
+  "version_label": "1.1.9",
+  "version_name": "v1.1.9 Anti-Spam Culto",
   "required_update": true,
   "clips_version": "1.1.9",
   "build": "v1.1.9_ANTI_SPAM_CULTO",
@@ -78,5 +78,5 @@
   "package_version": "1.1.9",
   "windows_version": "1.1.9",
   "mac_version": "1.0.111",
-  "manifest_cache_bust": "1783483361"
+  "manifest_cache_bust": "1783484650"
 }
