@@ -1,0 +1,16 @@
+FrameZero Clips 1.1.10 - Smart Anti-Spam (Windows + Mac)
+
+Correções:
+- Permite vários cortes bons em conversas curtas com a igreja.
+- Bloqueia cortes repetidos por tema, frase e contexto.
+- Janela inteligente de 5 minutos: até 3 cortes normais + até 2 excepcionais muito fortes e diferentes.
+- Score 95+ pode furar cooldown quando o tema é novo e forte.
+- Score 65-79 fica mais seletivo.
+- Reduz score 100 em cascata quando o assunto é repetido.
+- Corrige label interno do Core para v1.1.10 smart-anti-spam.
+
+Arquivos:
+- windows/FrameZero_Clips_1.1.10_Windows.zip
+- mac/FrameZero_Clips_1.1.10_Mac.zip
+- latest/version.json
+- version.json
