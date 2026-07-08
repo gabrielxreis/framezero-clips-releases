@@ -1,0 +1,14 @@
+FrameZero Clips 1.1.11 - Fast Seguro
+
+Objetivo:
+- No modo Fast, voltar ao comportamento do Corte Seguro antigo: mais cortes possíveis, ideal para conversas curtas de 5min com vários momentos bons.
+- Manter Smart Anti-Spam no Standard/Mixed para culto longo, bloqueando repetição e metralhadora de cortes.
+
+Mudanças:
+- Fast não usa janela smart de 5 minutos.
+- Fast não usa dedupe semântico pesado.
+- Fast não reduz score 100 em cascata por semelhança.
+- Fast mantém limiar mínimo seguro de 65.
+- Fast mantém bloqueio simples de duplicado/cooldown local.
+- max_cortes_sessao_fast aumentado para 120.
+- Windows e Mac atualizados juntos.
