@@ -1,0 +1,12 @@
+FrameZero Clips v1.1.9 - Anti-Spam Culto Mac
+
+Este patch adiciona o hotfix anti-spam também ao Mac.
+
+Inclui:
+- mac/FrameZero_Clips_1.1.9_Mac.zip
+- latest/version.json atualizado para Mac e Windows 1.1.9
+- version.json atualizado para Mac e Windows 1.1.9
+
+Não altera instaladores/desinstaladores.
+Não altera Nations.
+Somente atualiza o Core/payload Mac para aplicar as mesmas travas de corte.
