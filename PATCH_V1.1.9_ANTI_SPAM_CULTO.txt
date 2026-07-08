@@ -1,0 +1,7 @@
+FrameZero Clips v1.1.9 - Anti-Spam Culto
+- Reduz spam de cortes em culto/louvor.
+- Impede score 100 automatico em speech_with_music.
+- Nao corta so por audio quando existe transcricao valida.
+- Mantem score minimo 65.
+- Adiciona limite recomendado de cortes por sessao.
+- Oculta SoundCardRuntimeWarning repetitivo.
