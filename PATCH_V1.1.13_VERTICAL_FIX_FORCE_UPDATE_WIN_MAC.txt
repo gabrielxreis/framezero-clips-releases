@@ -1,0 +1,13 @@
+FrameZero Clips 1.1.13 - Vertical Fix Force Update
+
+Objetivo:
+- Subir a versão para 1.1.13 para forçar Macs que já estão em 1.1.12/1.1.11 a baixar novamente o pacote.
+- Manter o Vertical Fix da 1.1.12: geração automática 16x9 + 9x16 e filtro FFmpeg robusto.
+- Manter Fast Seguro da 1.1.11 e Smart Anti-Spam para Standard/Mixed.
+
+Mudanças:
+- Version bump: 1.1.12 -> 1.1.13.
+- mac_url e windows_url apontam para pacotes 1.1.13.
+- Core/log interno atualizado para v1.1.13 Vertical Fix Force Update.
+- Vertical 9x16 continua usando: scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920.
+- Log esperado no corte: versões solicitadas 16x9, 9x16; versão gerada 16x9; versão gerada 9x16.
