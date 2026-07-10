@@ -1,0 +1,14 @@
+FrameZero Clips 1.1.12 - Vertical Fix
+
+Objetivo:
+- Corrigir Mac que gera 16x9 mas não gera 9x16.
+- Manter Windows e Mac alinhados no mesmo Core.
+
+Mudanças:
+- Migração local força gerar_versoes_automaticas=true.
+- Migração local garante versoes_corte_automaticas=["16x9", "9x16"].
+- 9x16 usa filtro FFmpeg robusto: scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920.
+- Saída força pix_fmt yuv420p para compatibilidade.
+- FFmpeg mapeia vídeo e áudio de forma tolerante.
+- Log agora mostra quais versões foram realmente geradas.
+- Fast Seguro 1.1.11 mantido.
