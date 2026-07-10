@@ -1,0 +1,13 @@
+FrameZero Clips 1.1.14 - FFmpeg Required
+
+Objetivo:
+- Tornar FFmpeg obrigatório na instalação e na verificação antes do Core iniciar.
+- Evitar o caso em que o corte é detectado, textos são criados e replay-buffer-bruto.mp4 é salvo, mas os vídeos finais 16x9/9x16 não são renderizados.
+
+Mudanças:
+- Mac: launcher verifica FFmpeg em toda abertura.
+- Mac: se FFmpeg estiver ausente, tenta instalar FFmpeg local via imageio-ffmpeg.
+- Mac: se FFmpeg continuar ausente, o Core não inicia e mostra erro claro.
+- Windows: preflight verifica/instala FFmpeg antes do Core.
+- Windows: inicializador bloqueia início se FFmpeg continuar ausente.
+- Mantém Vertical Fix, Fast Seguro e Smart Anti-Spam.
