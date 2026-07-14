@@ -1,0 +1,14 @@
+FrameZero Clips 1.1.15
+
+- IA identifica cortes sem render automático.
+- EXTRA é somente badge.
+- Cada corte recebe corte_id.
+- Status: identified, rendering, rendered.
+- Novo comando WebSocket gerar_corte.
+- Render individual por corte_id.
+- Corte rendering ou rendered é bloqueado.
+- gerar_cortes legado continua compatível.
+- Cooldown de janela desativado.
+- Mesmo tema permitido.
+- Instaladores não foram alterados.
+- Desinstaladores não foram alterados.
