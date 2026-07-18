@@ -1,0 +1,24 @@
+PATCH V1.1.15 - WINDOWS FFMPEG LABEL FIX
+
+Objetivo:
+Corrigir o pacote Windows 1.1.14 que podia exibir:
+"O sistema não pode localizar o rótulo em lote especificado - ENSURE_FFMPEG_WINDOWS"
+ou erro semelhante em DETECT_AITUM_VERTICAL_WINDOWS.
+
+Causa provável:
+O preflight .bat do Windows estava sendo entregue com line endings LF e alguns ambientes do cmd falhavam ao resolver labels internos.
+
+Correções:
+- Reempacotado o FrameZero-Windows-Preflight.bat em CRLF.
+- Convertidos arquivos .bat/.cmd do pacote Windows para CRLF.
+- Mantidos os labels obrigatórios:
+  :ENSURE_FFMPEG_WINDOWS
+  :DETECT_AITUM_VERTICAL_WINDOWS
+  :DETECT_AITUM_MULTISTREAM_WINDOWS
+- Launcher Windows agora bloqueia o Core se a verificação obrigatória retornar erro.
+- FFmpeg continua obrigatório antes do Core.
+- Instaladores online não foram alterados.
+
+Versão:
+FrameZero Clips 1.1.15 - Windows FFmpeg Label Fix
+Build: v1.1.15_WINDOWS_FFMPEG_LABEL_FIX
