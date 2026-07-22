@@ -21,22 +21,22 @@ http://2.25.157.230:8000/transcribe
 Chave configurada:
 
 ```txt
-framezero_obs_2026
+DEFINA_FZ_VPS_TOKEN
 ```
 
 O FrameZero envia a chave em múltiplos headers para compatibilidade:
 
 ```txt
-Authorization: Bearer framezero_obs_2026
-X-API-Key: framezero_obs_2026
-X-FrameZero-Key: framezero_obs_2026
+Authorization: Bearer DEFINA_FZ_VPS_TOKEN
+X-API-Key: DEFINA_FZ_VPS_TOKEN
+X-FrameZero-Key: DEFINA_FZ_VPS_TOKEN
 ```
 
 Se a API responder 401/403, ele tenta também:
 
 ```txt
-token: framezero_obs_2026
-x-token: framezero_obs_2026
+token: DEFINA_FZ_VPS_TOKEN
+x-token: DEFINA_FZ_VPS_TOKEN
 ```
 
 ## Fase 1 — API básica

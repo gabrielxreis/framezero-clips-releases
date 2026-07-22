@@ -93,7 +93,7 @@ if not errorlevel 1 (
   echo OK: Aitum Vertical Canvas ja detectado. Nao vou reinstalar.
   exit /b 0
 )
-set "PLUG_TMP=%TEMP%\framezero_obs_plugins"
+set "PLUG_TMP=%TEMP%\DEFINA_FZ_VPS_TOKEN"
 if not exist "%PLUG_TMP%" mkdir "%PLUG_TMP%" >nul 2>nul
 call :DOWNLOAD_GITHUB_ASSET_WINDOWS "Aitum/obs-vertical-canvas" "vertical.*windows.*installer.*\.exe$" "%PLUG_TMP%\aitum-vertical.exe"
 if not errorlevel 1 (
@@ -112,7 +112,7 @@ if not errorlevel 1 (
   echo OK: Aitum Multistream ja detectado. Nao vou reinstalar.
   exit /b 0
 )
-set "PLUG_TMP=%TEMP%\framezero_obs_plugins"
+set "PLUG_TMP=%TEMP%\DEFINA_FZ_VPS_TOKEN"
 if not exist "%PLUG_TMP%" mkdir "%PLUG_TMP%" >nul 2>nul
 call :DOWNLOAD_GITHUB_ASSET_WINDOWS "Aitum/obs-aitum-multistream" "(multistream|multi).*windows.*installer.*\.exe$" "%PLUG_TMP%\aitum-multistream.exe"
 if not errorlevel 1 (

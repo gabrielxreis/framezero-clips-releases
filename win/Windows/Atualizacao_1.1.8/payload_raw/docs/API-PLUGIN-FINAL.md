@@ -6,7 +6,7 @@ Base URL: `http://2.25.157.230:8000`
 Todas as chamadas protegidas usam:
 
 ```txt
-x-api-key: framezero_obs_2026
+x-api-key: DEFINA_FZ_VPS_TOKEN
 ```
 
 ## Health

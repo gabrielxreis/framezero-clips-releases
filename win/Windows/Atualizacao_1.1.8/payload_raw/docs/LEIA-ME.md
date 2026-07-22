@@ -285,7 +285,7 @@ A integração completa está em `docs/OBS-WHISPER-API.md`.
 Esta versão já vem pronta para o usuário final:
 
 - VPS Whisper configurada: `http://2.25.157.230:8000/transcribe`.
-- Chave configurada: `framezero_obs_2026`.
+- Chave configurada: `DEFINA_FZ_VPS_TOKEN`.
 - FrameZero inicia automaticamente quando o OBS abre.
 - Perfil OBS `FrameZero Clips` é criado automaticamente.
 - Gravação em MOV para evitar erro/corrupção.
@@ -343,7 +343,7 @@ Se aparecer **VPS: offline/fallback**, o sistema continua funcionando com Whispe
 
 ## VPS Whisper + IA DeepSeek
 
-Esta versão vem pré-configurada para usar a VPS `http://2.25.157.230:8000`. O FrameZero envia áudio para `/transcribe` e texto acumulado para `/analyze-text`, usando o header `x-api-key: framezero_obs_2026`. Se a VPS falhar, o sistema volta para o modo local automaticamente.
+Esta versão vem pré-configurada para usar a VPS `http://2.25.157.230:8000`. O FrameZero envia áudio para `/transcribe` e texto acumulado para `/analyze-text`, usando o header `x-api-key: DEFINA_FZ_VPS_TOKEN`. Se a VPS falhar, o sistema volta para o modo local automaticamente.
 
 
 ## BlackHole já instalado
@@ -386,7 +386,7 @@ POST /analyze-text
 Header usado pelo plugin:
 
 ```txt
-x-api-key: framezero_obs_2026
+x-api-key: DEFINA_FZ_VPS_TOKEN
 ```
 
 A IA principal da VPS é `criador-cristao:latest`, rodando via Ollama internamente na VPS. O usuário final não precisa configurar nada disso.
@@ -432,7 +432,7 @@ Também há botões **Colar** ao lado dos campos e uma caixa **Colar configuraç
 
 ```txt
 URL: http://2.25.157.230:8000
-Chave: framezero_obs_2026
+Chave: DEFINA_FZ_VPS_TOKEN
 Mínimo: 15
 Máximo: 45
 ```
@@ -447,7 +447,7 @@ Se a VPS ainda não tiver o endpoint `/analyze-text`, o FrameZero não mostra er
 
 ## v38 — API final da VPS
 
-O plugin vem configurado para usar `http://2.25.157.230:8000` com `x-api-key: framezero_obs_2026`, endpoints `/health`, `/transcribe` e `/analyze-text`. A análise envia `text`, `start_time` e `end_time`. Score 80+ vira possível corte; 90+ vira corte forte.
+O plugin vem configurado para usar `http://2.25.157.230:8000` com `x-api-key: DEFINA_FZ_VPS_TOKEN`, endpoints `/health`, `/transcribe` e `/analyze-text`. A análise envia `text`, `start_time` e `end_time`. Score 80+ vira possível corte; 90+ vira corte forte.
 
 
 ---

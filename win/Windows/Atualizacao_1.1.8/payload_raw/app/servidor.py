@@ -336,7 +336,7 @@ CONFIG = {
     "transcription_engine": "mlx-whisper",
     "whisper_vps_endpoint": "/transcribe-fastwhisper",
     "whisper_vps_url": "http://2.25.157.230:8000/transcribe-fastwhisper",
-    "whisper_vps_token": "framezero_obs_2026",
+    "whisper_vps_token": "DEFINA_FZ_VPS_TOKEN",
     "vps_auth_header": "x-api-key",
     "vps_modelo_ia_principal": "criador-cristao:latest",
     "vps_modelo_ia_base": "qwen2.5:3b",

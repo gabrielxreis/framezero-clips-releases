@@ -31,7 +31,7 @@ POST /analyze-text
 Header obrigatório usado pelo plugin:
 
 ```txt
-x-api-key: framezero_obs_2026
+x-api-key: DEFINA_FZ_VPS_TOKEN
 ```
 
 ## Modelos da VPS
