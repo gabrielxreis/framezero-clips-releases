@@ -1,5 +1,5 @@
 @echo off
-REM FrameZero Windows Installer v1.0.91
+REM FrameZero Windows Installer v1.0.112
 REM Bootstrap no mesmo conceito do Mac: baixa o pacote real, extrai e executa o instalador interno.
 REM REGRA ABSOLUTA: nao alterar o desinstalador Windows validado enviado pelo usuario.
 
@@ -11,10 +11,10 @@ if /i not "%FRAMEZERO_KEEP_OPEN_SESSION%"=="1" (
 
 setlocal EnableExtensions DisableDelayedExpansion
 chcp 65001 >nul
-title FrameZero Installer 1.0.91 - Windows
+title FrameZero Installer 1.0.112 - Windows
 color 0A
 
-set "CURRENT_INSTALLER_VERSION=1.0.91"
+set "CURRENT_INSTALLER_VERSION=1.0.112"
 set "VERSION_URL=https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/latest/version.json"
 set "TMP_DIR=%TEMP%\FrameZeroOnlineInstaller"
 set "VERSION_FILE=%TMP_DIR%\version.json"
@@ -30,12 +30,16 @@ set "LOCAL_UNINSTALLER_4=%~dp0win\Windows\DESINSTALAR_FRAMEZERO_COMPLETO.bat"
 set "TEMP_UNINSTALLER=%TMP_DIR%\FrameZero_Uninstaller_1.0_Windows.bat"
 if not exist "%TMP_DIR%" mkdir "%TMP_DIR%" >nul 2>nul
 
-if /i "%~1"=="--nations-langs-background" (
-  call :WELCOME
-  call :LOAD_MANIFEST || exit /b 1
-  call :INSTALL_NATIONS
-  exit /b %ERRORLEVEL%
-)
+if /i "%~1"=="--nations-langs-background" goto NATIONS_LANGS_BACKGROUND
+goto AFTER_ARGS
+
+:NATIONS_LANGS_BACKGROUND
+call :WELCOME
+call :LOAD_MANIFEST || exit /b 1
+call :INSTALL_NATIONS
+exit /b %ERRORLEVEL%
+
+:AFTER_ARGS
 
 call :WELCOME
 call :LOAD_MANIFEST || goto MAIN_MENU
@@ -46,7 +50,7 @@ goto END
 :HEADER
 cls
 echo ============================================================
-echo                 FrameZero Installer 1.0.91 - Windows
+echo                 FrameZero Installer 1.0.112 - Windows
 echo ============================================================
 echo  @gabrielxreis_                         @framezeroai
 echo ============================================================
@@ -71,13 +75,40 @@ set "DL_URL=%~1"
 set "DL_OUT=%~2"
 set "DL_LABEL=%~3"
 echo %DL_LABEL%
+if exist "%DL_OUT%" del /f /q "%DL_OUT%" >nul 2>nul
 where curl.exe >nul 2>nul
-if not errorlevel 1 (
-  curl.exe -fL --connect-timeout 10 --max-time 600 --output "%DL_OUT%" "%DL_URL%"
-  exit /b %ERRORLEVEL%
-)
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='Continue'; Invoke-WebRequest -UseBasicParsing -Uri '%DL_URL%' -OutFile '%DL_OUT%'"
-exit /b %ERRORLEVEL%
+if errorlevel 1 goto DL_POWERSHELL
+REM curl usa o schannel do Windows: se o antivirus/proxy fizer inspecao SSL,
+REM ele falha com (60) SEC_E_UNTRUSTED_ROOT. Nesse caso caimos no PowerShell.
+curl.exe -fL --connect-timeout 10 --max-time 600 --output "%DL_OUT%" "%DL_URL%"
+if errorlevel 1 goto DL_POWERSHELL
+if not exist "%DL_OUT%" goto DL_POWERSHELL
+exit /b 0
+
+:DL_POWERSHELL
+echo Tentando metodo alternativo de download...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference='Continue'; [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri '%DL_URL%' -OutFile '%DL_OUT%'"
+if errorlevel 1 goto DL_FAIL
+if not exist "%DL_OUT%" goto DL_FAIL
+exit /b 0
+
+:DL_FAIL
+echo.
+echo [ERRO] Nao foi possivel baixar o arquivo:
+echo        %DL_URL%
+echo.
+echo Causa mais comum: o antivirus, firewall ou proxy da rede esta interceptando
+echo a conexao segura (HTTPS) com o GitHub e o Windows nao confia no certificado
+echo apresentado (erro SEC_E_UNTRUSTED_ROOT / SSL).
+echo.
+echo Como resolver:
+echo  1) Desative temporariamente a inspecao SSL/HTTPS do antivirus e tente de novo.
+echo  2) Ou use outra rede (ex.: roteador de casa / 4G do celular).
+echo  3) Ou instale as atualizacoes do Windows (certificados raiz desatualizados).
+echo  4) Ou baixe o pacote manualmente em:
+echo     https://github.com/gabrielxreis/framezero-clips-releases
+echo.
+exit /b 1
 
 :READ_JSON
 set "%~2="
@@ -144,13 +175,20 @@ echo.
 call :DOWNLOAD_FILE "%PKG_URL%" "%ZIP_PATH%" "%LABEL%"
 if errorlevel 1 (
   echo.
-  echo [ERRO] download failed.
+  echo [ERRO] O download do pacote falhou. Instalacao interrompida.
+  exit /b 1
+)
+if not exist "%ZIP_PATH%" (
+  echo.
+  echo [ERRO] O pacote nao foi baixado ^(arquivo ausente^). Instalacao interrompida.
   exit /b 1
 )
 echo Extraindo pacote...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Force -LiteralPath '%ZIP_PATH%' -DestinationPath '%EXTRACT_DIR%'"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; try { Expand-Archive -Force -LiteralPath '%ZIP_PATH%' -DestinationPath '%EXTRACT_DIR%'; exit 0 } catch { Write-Host $_.Exception.Message; exit 1 }"
 if errorlevel 1 (
-  echo [ERRO] extract failed.
+  echo.
+  echo [ERRO] Nao foi possivel extrair o pacote. O arquivo pode estar incompleto
+  echo        ou corrompido. Rode o instalador novamente.
   exit /b 1
 )
 set "FOUND_SCRIPT="
@@ -209,7 +247,7 @@ if not exist "%FZ_APP%\servidor.py" (
   echo.
   echo Core do FrameZero Clips nao encontrado. Instalando Clips antes do Nations...
   call :INSTALL_CLIPS
-  if errorlevel 1 exit /b %ERRORLEVEL%
+  if errorlevel 1 exit /b 1
 )
 if exist "%FZ_ROOT%\FrameZero-Windows-Preflight.bat" (
   echo.
@@ -219,7 +257,7 @@ if exist "%FZ_ROOT%\FrameZero-Windows-Preflight.bat" (
   echo.
   echo Preflight de componentes nao encontrado. Reparando arquivos do Clips antes do Nations...
   call :INSTALL_CLIPS
-  if errorlevel 1 exit /b %ERRORLEVEL%
+  if errorlevel 1 exit /b 1
 )
 exit /b 0
 

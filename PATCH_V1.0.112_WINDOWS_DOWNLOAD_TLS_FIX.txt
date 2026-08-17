@@ -1,0 +1,36 @@
+PATCH V1.0.112 - WINDOWS: FALHA DE DOWNLOAD SILENCIOSA + TLS
+
+SINTOMA
+  curl: (60) schannel: SEC_E_UNTRUSTED_ROOT (0x80090325)
+  Expand-Archive: O caminho '...\FrameZeroOnlineInstaller\clips_windows.zip' nao existe
+  [ERRO] extract failed.
+
+CAUSA RAIZ
+  1) Na maquina do cliente o curl.exe (schannel) nao confia na cadeia do GitHub:
+     antivirus/proxy com inspecao SSL, ou root CAs do Windows desatualizados.
+  2) BUG no instalador: com "setlocal DisableDelayedExpansion", o
+     "exit /b %ERRORLEVEL%" dentro do bloco if( ) era expandido na leitura do
+     bloco -> :DOWNLOAD_FILE sempre retornava 0. A falha de download era engolida
+     e o script seguia para o Expand-Archive de um ZIP inexistente, mostrando uma
+     mensagem sem relacao com a causa real.
+
+CORRECOES
+  - :DOWNLOAD_FILE reescrito sem parenteses (usa goto), retorna 1 de verdade.
+  - Fallback automatico para PowerShell com TLS 1.2 quando o curl falha.
+  - Mensagem final explicando antivirus/proxy/certificados + download manual.
+  - Validacao "if not exist" do arquivo baixado antes de extrair.
+  - Expand-Archive com $ErrorActionPreference='Stop' + try/catch + exit code real.
+  - "if errorlevel 1 exit /b %ERRORLEVEL%" dentro de blocos -> "exit /b 1".
+  - Bloco --nations-langs-background convertido em label (mesmo bug de expansao).
+  - INICIAR_INSTALADOR_WINDOWS.bat: TLS 1.2 no bootstrap + aviso de causa SSL.
+  - Novo DOCS/WINDOWS_INSTALLER_REFERENCIA.md com as armadilhas e o checklist.
+
+NAO FOI FEITO (de proposito)
+  Nao usar curl -k / --ssl-no-revoke por padrao: desliga a verificacao de
+  certificado e permitiria MITM na entrega do instalador.
+
+ARQUIVOS
+  FrameZero_Installer_1.0_Windows.bat
+  installers/FrameZero_Installer_1.0_Windows.bat  (copia identica, e a entregue)
+  INICIAR_INSTALADOR_WINDOWS.bat
+  DOCS/WINDOWS_INSTALLER_REFERENCIA.md

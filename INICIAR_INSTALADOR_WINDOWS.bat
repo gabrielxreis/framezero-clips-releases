@@ -3,7 +3,7 @@ setlocal EnableExtensions
 chcp 65001 >nul
 title Iniciar Instalador FrameZero Windows
 
-REM FrameZero Windows Bootstrap v1.0.91
+REM FrameZero Windows Bootstrap v1.0.112
 REM Antes de iniciar o instalador real, limpa TEMP/cache/versoes locais antigas
 REM e baixa sempre o instalador Windows mais recente do GitHub.
 
@@ -20,6 +20,7 @@ set "BOOTSTRAP_PS=%TEMP%\FrameZero_PreClean_And_Start.ps1"
 >> "%BOOTSTRAP_PS%" echo Remove-Item "$env:APPDATA\obs-studio\FrameZero\FrameZero-Update-Check.ps1" -Force -ErrorAction SilentlyContinue
 >> "%BOOTSTRAP_PS%" echo $URL = "https://raw.githubusercontent.com/gabrielxreis/framezero-clips-releases/main/installers/FrameZero_Installer_1.0_Windows.bat"
 >> "%BOOTSTRAP_PS%" echo $OUT = "$env:USERPROFILE\Downloads\FrameZero_Installer_Atualizado.bat"
+>> "%BOOTSTRAP_PS%" echo [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 >> "%BOOTSTRAP_PS%" echo Invoke-WebRequest -Uri $URL -OutFile $OUT -UseBasicParsing
 >> "%BOOTSTRAP_PS%" echo if(Test-Path $OUT){ cmd /c "`"$OUT`""; exit $LASTEXITCODE }
 >> "%BOOTSTRAP_PS%" echo exit 1
@@ -31,6 +32,9 @@ exit /b %ERRORLEVEL%
 
 :LOCAL
 echo.
-echo [AVISO] Nao foi possivel baixar o instalador novo agora. Abrindo instalador local...
+echo [AVISO] Nao foi possivel baixar o instalador novo agora.
+echo         Se isso repetir, o antivirus/proxy da rede pode estar bloqueando
+echo         a conexao HTTPS com o GitHub (erro SSL / SEC_E_UNTRUSTED_ROOT).
+echo Abrindo instalador local...
 call "%~dp0FrameZero_Installer_1.0_Windows.bat"
 exit /b %ERRORLEVEL%
