@@ -1078,7 +1078,13 @@ PALAVRAS_PREGA_FALA = {
     "texto", "pregacao", "pregação", "mensagem", "ensino", "historia", "história",
     "abraao", "abraão", "moises", "moisés", "davi", "paulo", "pedro",
     "olha", "presta", "atencao", "atenção", "entenda", "voce", "você",
-    "porque", "portanto", "significa", "aplicacao", "aplicação", "disse"
+    "porque", "portanto", "significa", "aplicacao", "aplicação", "disse",
+    # Inglês: evita que sermões em EN sejam tratados como louvor por falta
+    # de vocabulário de pregação no classificador textual.
+    "bible", "verse", "chapter", "scripture", "sermon", "message", "teaching",
+    "story", "vision", "apostle", "paul", "peter", "pastor", "church",
+    "look", "listen", "understand", "because", "therefore", "means",
+    "application", "said", "leadership", "life", "today"
 }
 
 def classificar_conteudo_bloco(texto):
@@ -1219,10 +1225,14 @@ def audio_features_misto(audio, sr=16000):
         speech_score = int(max(0, min(100, (rms / 0.045) * 45 + (18 if 0.08 <= zcr <= 0.32 else 4))))
         if rms < float(config_usuario.get("audio_min_rms_para_status", CONFIG.get("audio_min_rms_para_status", 0.006))):
             kind = "silence"
-        elif music_score >= max(58, speech_score + 8):
-            kind = "music"
-        elif music_score >= 50 and speech_score >= 45:
+        # v1.1.20 hotfix: fala forte nunca deve virar "music" só porque existe
+        # trilha/PA/ambiencia musical. Em pregações (inclusive inglês), o score
+        # musical pode saturar em 100 enquanto a fala continua em 65-95.
+        # Nesses casos preservamos o bloco como fala elegível para cortes.
+        elif speech_score >= 60 and music_score >= 50:
             kind = "speech_with_music"
+        elif music_score >= max(70, speech_score + 15):
+            kind = "music"
         else:
             kind = "speech"
         return {"rms":rms,"peak":peak,"dynamic":dynamic,"zcr":zcr,"crest":crest,"energy_score":energy_score,"music_score":music_score,"speech_score":speech_score,"kind":kind}
